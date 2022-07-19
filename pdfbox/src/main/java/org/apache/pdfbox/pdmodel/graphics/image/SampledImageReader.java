@@ -27,6 +27,7 @@ import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
@@ -47,6 +48,10 @@ import org.apache.pdfbox.pdmodel.graphics.color.PDIndexed;
 final class SampledImageReader
 {
     private static final Log LOG = LogFactory.getLog(SampledImageReader.class);
+    
+    private final static long SHIFT = 0x0000040810204081L; // bits set: 0, 7, 14, 21, 28, 35, 42
+    private final static long MASK  = 0x0001010101010101L; // bits set: 0, 8, 16, 24, 32, 40, 48
+    
     
     private SampledImageReader()
     {
@@ -432,60 +437,60 @@ final class SampledImageReader
                 raster = Raster.createBandedRaster(DataBuffer.TYPE_BYTE, width, height, 1, new Point(0, 0));
             }
 
+            final boolean nosubsampling = currentSubsampling == 1;
             final byte[] output = ((DataBufferByte) raster.getDataBuffer()).getData();
+            final ByteBuffer buf = nosubsampling && (scanWidth - startx % 8) / 8 > 0 ? ByteBuffer.wrap(output) : null;
             int idx = 0;
 
             // read stream byte per byte, invert pixel bits if necessary,
             // and then simply shift bits out to the left, detecting set bits via sign 
-            final boolean nosubsampling = currentSubsampling == 1;
             final int stride = (inputWidth + 7) / 8;
             final int invert = colorSpace instanceof PDIndexed || decode[0] < decode[1] ? 0 : -1;
             final int endX = startx + scanWidth;
             final byte[] buff = new byte[stride];
-            for (int y = 0; y < starty + scanHeight; y++)
+            int read = stride;
+            for (int y = 0; y < starty + scanHeight && read==stride; y++)
             {
-                int read = (int) IOUtils.populateBuffer(iis, buff);
-                if (y >= starty && y % currentSubsampling == 0)
-                {
-                    int x = startx;
-                    for (int r = x / 8; r < stride && r < read; r++)
-                    {
-                        int value = (buff[r] ^ invert) << (24 + (x & 7));
-                        for (int count = Math.min(8 - (x & 7), endX - x); count > 0; x++, count--)
-                        {
-                            if (nosubsampling || x % currentSubsampling == 0)
-                            {
-                                if (value < 0)
-                                {
-                                    output[idx] = (byte) 255;
-                                }
-                                idx++;
-                            }
-                            value <<= 1;
-                        }
-                    }
-                }
-                if (read != stride)
-                {
-                    LOG.warn("premature EOF, image will be incomplete");
-                    break;
-                }
-            }
+                read = (int) IOUtils.populateBuffer(iis, buff);
+                if (read != stride) LOG.warn("premature EOF, image will be incomplete");
+                if ( y<starty || y % currentSubsampling!=0 ) continue;
 
-            if (bim != null)
-            {
-                return bim;
+                for (int x = startx, r = x / 8; r < read; r++)
+                {
+            	    int count = Math.min(8 - (x & 7), endX - x);
+            	    if ( count==8 && buf!=null )
+            	    {
+            	        long value = buff[r] ^ invert;
+            	        buf.putLong(idx, ((value & 0x7f) * SHIFT & MASK) * 0xff | value >> 7 << 56);
+            	        idx += 8;
+            	        x   += 8;
+            	    }
+            	    else if ( nosubsampling )
+            	    {
+            	        int value = (buff[r] ^ invert) << (24 + (x & 7) - 1);
+            	        while ( --count>=0 ) output[idx++] = (byte)((value <<= 1) >> 31); 
+            	        x += 8;
+            	    }
+            	    else
+            	    {
+            	        int value = (buff[r] ^ invert) << (24 + (x & 7) - 1);
+            	        while ( --count>=0 ) { 
+            	            if ( x++ % currentSubsampling == 0) {
+            	                output[idx++] = (byte)((value <<= 1) >> 31); 
+            	            } else {
+            	                value <<= 1;
+            	            }
+            	        }
+            	    }
+                }
             }
 
             // use the color space to convert the image to RGB
-            return colorSpace.toRGBImage(raster);
+            return bim==null ? colorSpace.toRGBImage(raster) : bim;
         }
         finally
         {
-            if (iis != null)
-            {
-                iis.close();
-            }
+            if (iis != null) iis.close();
         }
     }
 
