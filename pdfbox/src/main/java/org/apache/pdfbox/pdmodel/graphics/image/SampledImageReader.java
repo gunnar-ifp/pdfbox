@@ -429,6 +429,8 @@ final class SampledImageReader
                 // TYPE_BYTE_GRAY and not TYPE_BYTE_BINARY because this one is handled
                 // without conversion to RGB by Graphics.drawImage
                 // this reduces the memory footprint, only one byte per pixel instead of three.
+                // note: this will get lighter due to linear -> sRGB conversion, though!
+                // note: seems like every pdf lib is doing so
                 bim = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
                 raster = bim.getRaster();
             }
@@ -437,17 +439,17 @@ final class SampledImageReader
                 raster = Raster.createBandedRaster(DataBuffer.TYPE_BYTE, width, height, 1, new Point(0, 0));
             }
 
+            // Read stream byte per byte, invert pixel bits if necessary and convert each bit into a byte (0 or 255) by either:
+            // Converting 8 pixels at once by bit to byte expansion with multiply & mask and a long buffer to write to the byte array.
+            // Or shifting left and arithmetic right to use the sign bit to create the byte value.
             final boolean nosubsampling = currentSubsampling == 1;
             final byte[] output = ((DataBufferByte) raster.getDataBuffer()).getData();
             final ByteBuffer buf = nosubsampling && (scanWidth - startx % 8) / 8 > 0 ? ByteBuffer.wrap(output) : null;
-            int idx = 0;
-
-            // read stream byte per byte, invert pixel bits if necessary,
-            // and then simply shift bits out to the left, detecting set bits via sign 
             final int stride = (inputWidth + 7) / 8;
+            final byte[] buff = new byte[stride];
             final int invert = colorSpace instanceof PDIndexed || decode[0] < decode[1] ? 0 : -1;
             final int endX = startx + scanWidth;
-            final byte[] buff = new byte[stride];
+            int idx = 0;
             int read = stride;
             for (int y = 0; y < starty + scanHeight && read==stride; y++)
             {
@@ -457,31 +459,31 @@ final class SampledImageReader
 
                 for (int x = startx, r = x / 8; r < read; r++)
                 {
-            	    int count = Math.min(8 - (x & 7), endX - x);
-            	    if ( count==8 && buf!=null )
-            	    {
-            	        long value = buff[r] ^ invert;
-            	        buf.putLong(idx, ((value & 0x7f) * SHIFT & MASK) * 0xff | value >> 7 << 56);
-            	        idx += 8;
-            	        x   += 8;
-            	    }
-            	    else if ( nosubsampling )
-            	    {
-            	        int value = (buff[r] ^ invert) << (24 + (x & 7) - 1);
-            	        while ( --count>=0 ) output[idx++] = (byte)((value <<= 1) >> 31); 
-            	        x += 8;
-            	    }
-            	    else
-            	    {
-            	        int value = (buff[r] ^ invert) << (24 + (x & 7) - 1);
-            	        while ( --count>=0 ) { 
-            	            if ( x++ % currentSubsampling == 0) {
-            	                output[idx++] = (byte)((value <<= 1) >> 31); 
-            	            } else {
-            	                value <<= 1;
-            	            }
-            	        }
-            	    }
+                    int count = Math.min(8 - (x & 7), endX - x);
+                    if ( count==8 && buf!=null )
+                    {
+                        long value = buff[r] ^ invert;
+                        buf.putLong(idx, ((value & 0x7f) * SHIFT & MASK) * 0xff | value >> 7 << 56);
+                        idx += 8;
+                        x   += 8;
+                    }
+                    else if ( nosubsampling )
+                    {
+                        int value = (buff[r] ^ invert) << (23 + (x & 7));
+                        x += count;
+                        while ( --count>=0 ) output[idx++] = (byte)((value <<= 1) >> 31); 
+                    }
+                    else
+                    {
+                        int value = (buff[r] ^ invert) << (23 + (x & 7));
+                        while ( --count>=0 ) { 
+                            if ( x++ % currentSubsampling == 0) {
+                                output[idx++] = (byte)((value <<= 1) >> 31); 
+                            } else {
+                                value <<= 1;
+                            }
+                        }
+                    }
                 }
             }
 
