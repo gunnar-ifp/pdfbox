@@ -16,11 +16,12 @@
  */
 package org.apache.pdfbox.pdmodel.graphics.color;
 
-import org.apache.pdfbox.cos.COSName;
-
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
+
+import org.apache.pdfbox.cos.COSName;
 
 /**
  * A color space with black, white, and intermediate shades of gray.
@@ -80,23 +81,19 @@ public final class PDDeviceGray extends PDDeviceColorSpace
     @Override
     public BufferedImage toRGBImage(WritableRaster raster) throws IOException
     {
-        int width = raster.getWidth();
-        int height = raster.getHeight();
+        // Cast the linear gray value into an sRGB value w/o gamma correction (seems everybody is doing so).
 
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final int width = raster.getWidth();
+        final int height = raster.getHeight();
 
-        int[] gray = new int[1];
-        int[] rgb = new int[3];
+        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final DataBuffer db = image.getRaster().getDataBuffer();
+        final int[] gray = new int[width];
+        int offset = 0;
         for (int y = 0; y < height; y++)
         {
-            for (int x = 0; x < width; x++)
-            {
-                raster.getPixel(x, y, gray);
-                rgb[0] = gray[0];
-                rgb[1] = gray[0];
-                rgb[2] = gray[0];
-                image.getRaster().setPixel(x, y, rgb);
-            }
+            raster.getSamples(0, y, width, 1, 0, gray);
+            for ( int g : gray ) db.setElem(0, offset++, g * 0x010101);
         }
 
         return image;
