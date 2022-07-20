@@ -20,14 +20,17 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.SequenceInputStream;
+
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -127,15 +130,17 @@ final class JBIG2Filter extends Filter
                 image = packedImage;
             }
 
-            DataBuffer dBuf = image.getData().getDataBuffer();
-            if (dBuf.getDataType() == DataBuffer.TYPE_BYTE)
-            {
-                decoded.write(((DataBufferByte) dBuf).getData());
-            }
-            else
+            WritableRaster raster = image.getRaster();
+            if ( raster.getDataBuffer().getDataType() != DataBuffer.TYPE_BYTE )
             {
                 throw new IOException("Unexpected image buffer type");
             }
+            DataBufferByte db = (DataBufferByte)raster.getDataBuffer();
+            if ( db.getSize() != (raster.getWidth() + 7) / 8 * raster.getHeight() )
+            {
+                db = (DataBufferByte)image.getData().getDataBuffer();
+            }
+            decoded.write(db.getData());
         }
         finally
         {
