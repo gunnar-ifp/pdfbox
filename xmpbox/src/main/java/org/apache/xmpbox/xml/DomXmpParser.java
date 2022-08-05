@@ -190,10 +190,13 @@ public class DomXmpParser
         }
         else if ( metas.size()==1 ) {
             // if xpacket exists, then x:xmpmeta must be top level
-            if ( xpacket && !nodes.contains(metas.get(0)) ) {
-                throw new XmpParsingException(ErrorType.Format, "x:xmpmeta must be a top level element");
+            if ( xpacket ) {
+                if ( !nodes.contains(metas.get(0)) ) {
+                    throw new XmpParsingException(ErrorType.Format, "x:xmpmeta must be a top level element");
+                }
+            } else {
+                nodes = metas;
             }
-            nodes = metas;
         }
 
         if ( nodes.isEmpty() ) {
