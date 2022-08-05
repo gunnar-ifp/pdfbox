@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d' bytes='1290'?>
+
+<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+ xmlns:iX='http://ns.adobe.com/iX/1.0/'>
+
+ <rdf:Description about=''
+  xmlns='http://ns.adobe.com/pdf/1.3/'
+  xmlns:pdf='http://ns.adobe.com/pdf/1.3/'>
+  <pdf:Creator>Microsoft Word</pdf:Creator>
+  <pdf:CreationDate>2003-03-26T18:05:57Z</pdf:CreationDate>
+  <pdf:Title>Dokument2</pdf:Title>
+  <pdf:Author>Andreas</pdf:Author>
+  <pdf:Producer>Acrobat PDFWriter 5.0 für Windows</pdf:Producer>
+  <pdf:ModDate>2003-03-26T18:10:23+01:00</pdf:ModDate>
+ </rdf:Description>
+
+ <rdf:Description about=''
+  xmlns='http://ns.adobe.com/xap/1.0/'
+  xmlns:xap='http://ns.adobe.com/xap/1.0/'>
+  <xap:CreateDate>2003-03-26T18:05:57Z</xap:CreateDate>
+  <xap:Title>
+   <rdf:Alt>
+    <rdf:li xml:lang='x-default'>Dokument2</rdf:li>
+   </rdf:Alt>
+  </xap:Title>
+  <xap:Author>Andreas</xap:Author>
+  <xap:ModifyDate>2003-03-26T18:10:23+01:00</xap:ModifyDate>
+  <xap:MetadataDate>2003-03-26T18:10:23+01:00</xap:MetadataDate>
+ </rdf:Description>
+
+ <rdf:Description about=''
+  xmlns='http://purl.org/dc/elements/1.1/'
+  xmlns:dc='http://purl.org/dc/elements/1.1/'>
+  <dc:title>Dokument2</dc:title>
+  <dc:creator>Andreas</dc:creator>
+ </rdf:Description>
+
+</rdf:RDF>
+<?xpacket end='r'?>
