@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+ <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
 ! Licensed to the Apache Software Foundation (ASF) under one or more
@@ -23,11 +23,7 @@
     <parent>
         <groupId>org.apache</groupId>
         <artifactId>apache</artifactId>
-
-        <!-- don't increase number without investigation of the diffs
-             https://maven.apache.org/pom/asf/ due to failure to build on jdk6 -->
-        <version>19</version>
-
+        <version>27</version>
         <relativePath />
     </parent>
 
@@ -54,7 +50,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <bouncycastle.version>1.70</bouncycastle.version>
-        
+
         <!-- PDFBOX-4479 to build on jdk6 on newer Jenkins -->
         <jdk.path>${env.JAVA_HOME}</jdk.path>
     </properties>
@@ -147,7 +143,7 @@
                     <plugin>
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
-                            <release>6</release>
+                            <release>8</release>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -155,7 +151,7 @@
         </profile>
         <profile>
             <!-- from jdk11 onwards activation and bind are no longer part of the jdk -->
-            <!-- must be set to "test" or "provided" in subprojects --> 
+            <!-- must be set to "test" or "provided" in subprojects -->
             <id>jdk11</id>
            <activation>
                 <jdk>[11,)</jdk>
@@ -229,8 +225,8 @@
                 <!-- fails with maven 3.6.0 on jdk 6, works with 3.2.1, 3.5.0 and 3.5.2 -->
                 <configuration>
                     <showDeprecation>true</showDeprecation>
-                    <target>1.6</target>
-                    <source>1.6</source>
+                    <target>1.8</target>
+                    <source>1.8</source>
                     <encoding>UTF-8</encoding>
                     <!-- https://maven.apache.org/plugins/maven-compiler-plugin/examples/compile-using-different-jdk.html -->
                     <executable>${jdk.path}/bin/javac</executable>
@@ -245,7 +241,7 @@
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
-                    <source>1.6</source>
+                    <source>1.8</source>
                     <links>
                         <link>https://docs.oracle.com/javase/6/docs/api/</link>
                     </links>
@@ -335,7 +331,7 @@
                                         <version>3.1</version>
                                     </requireMavenVersion>
                                     <requireJavaVersion>
-                                        <version>[1.7,12)</version>
+                                        <version>[1.7,)</version>
                                         <message>Requires at least Java 7, and
                                             Java versions higher than 11 cannot
                                             build Java 6 bytecode</message>
@@ -374,174 +370,4 @@
         </pluginManagement>
     </build>
 
-    <!-- Developers listed by PMC Chair, PMC all alphabetical-->
-    <developers>
-        <developer>
-            <id>lehmi</id>
-            <name>Andreas Lehmkühler</name>
-            <roles>
-                <role>PMC Chair</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>adam</id>
-            <name>Adam Nichols</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>blitchfield</id>
-            <name>Ben Litchfield</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>carrier</id>
-            <name>Brian Carrier</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>danielwilson</id>
-            <name>Daniel Wilson</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>gbailleul</id>
-            <name>Guillaume Bailleul</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>hennejg</id>
-            <name>Jörg Henne</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>holdersn</id>
-            <name>Sebastian Holder</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>jahewson</id>
-            <name>John Hewson</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>jeremias</id>
-            <name>Jeremias Maerki</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>kjackson</id>
-            <name>Kevin Jackson</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>koch</id>
-            <name>Johannes Koch</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>koehlecn</id>
-            <name>Carolin Köhler</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>mmayer</id>
-            <name>Matthäus Mayer</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>msahyoun</id>
-            <name>Maruan Sahyoun</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>pkoch</id>
-            <name>Phillipp Koch</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>tallison</id>
-            <name>Tim Allison</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>tchojecki</id>
-            <name>Thomas Chojecki</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>tboehme</id>
-            <name>Timo Boehme</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>tilman</id>
-            <name>Tilman Hausherr</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>vfed</id>
-            <name>Villu Ruusmann</name>
-            <roles>
-                <role>PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>leleueri</id>
-            <name>Eric Leleu</name>
-            <roles>
-                <role>Emeritus PMC Member</role>
-            </roles>
-        </developer>
-        <developer>
-            <id>jukka</id>
-            <name>Jukka Zitting</name>
-            <roles>
-                <role>Emeritus PMC Member</role>
-            </roles>
-        </developer>
-    </developers>
-
-  <scm>
-    <connection>scm:svn:http://svn.apache.org/repos/asf/maven/pom/branches/2.0/pdfbox-parent</connection>
-    <developerConnection>scm:svn:https://svn.apache.org/repos/asf/maven/pom/branches/2.0/pdfbox-parent</developerConnection>
-    <url>http://svn.apache.org/viewvc/maven/pom/branches/2.0/pdfbox-parent</url>
-  </scm>
 </project>
