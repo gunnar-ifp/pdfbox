@@ -143,11 +143,9 @@ public class DomXmpParser
         {
             throw new XmpParsingException(ErrorType.XpacketBadStart, "xmp should start with a processing instruction");
         }
-        else
-        {
-            xmp = parseInitialXpacket((ProcessingInstruction) node);
-            node = node.getNextSibling();
-        }
+        xmp = parseInitialXpacket((ProcessingInstruction) node);
+        node = node.getNextSibling();
+
         // forget other processing instruction
         while (node instanceof ProcessingInstruction)
         {
@@ -159,28 +157,25 @@ public class DomXmpParser
         {
             throw new XmpParsingException(ErrorType.NoRootElement, "xmp should contain a root element");
         }
-        else
-        {
-            // use this element as root
-            root = (Element) node;
-            node = node.getNextSibling();
-        }
+        // use this element as root
+        root = (Element) node;
+        node = node.getNextSibling();
+
         // expect xpacket end
         if (!(node instanceof ProcessingInstruction))
         {
             throw new XmpParsingException(ErrorType.XpacketBadEnd, "xmp should end with a processing instruction");
         }
-        else
-        {
-            parseEndPacket(xmp, (ProcessingInstruction) node);
-            node = node.getNextSibling();
-        }
+        parseEndPacket(xmp, (ProcessingInstruction) node);
+        node = node.getNextSibling();
+
         // should be null
         if (node != null)
         {
             throw new XmpParsingException(ErrorType.XpacketBadEnd,
                     "xmp should end after xpacket end processing instruction");
         }
+
         // xpacket is OK and the is no more nodes
         // Now, parse the content of root
         Element rdfRdf = findDescriptionsParent(root);
@@ -332,11 +327,8 @@ public class DomXmpParser
                     throw new XmpParsingException(ErrorType.InvalidType, "No type defined for {" + namespace + "}"
                             + name);
                 }
-                else
-                {
-                    // use it as string
-                    manageSimpleType(xmp, property, Types.Text, container);
-                }
+                // use it as string
+                manageSimpleType(xmp, property, Types.Text, container);
             }
             else if (type.type() == Types.LangAlt)
             {
@@ -552,34 +544,30 @@ public class DomXmpParser
             nsFinder.push(liChild);
             return parseLiDescription(xmp, descriptor, liChild);
         }
-        else
+
+        // no child
+        String text = liElement.getTextContent();
+        TypeMapping tm = xmp.getTypeMapping();
+        if (type.isSimple())
         {
-            // no child
-            String text = liElement.getTextContent();
-            TypeMapping tm = xmp.getTypeMapping();
-            if (type.isSimple())
-            {
-                AbstractField af = tm.instanciateSimpleProperty(descriptor.getNamespaceURI(),
-                        descriptor.getPrefix(), descriptor.getLocalPart(), text, type);
-                loadAttributes(af, liElement);
-                return af;
-            }
-            else
-            {
-                // PDFBOX-4325: assume it is structured
-                AbstractField af;
-                try
-                {
-                    af = tm.instanciateStructuredType(type, descriptor.getLocalPart());
-                }
-                catch (BadFieldValueException ex)
-                {
-                    throw new XmpParsingException(ErrorType.InvalidType, "Parsing of structured type failed", ex);
-                }
-                loadAttributes(af, liElement);
-                return af;
-            }
+            AbstractField af = tm.instanciateSimpleProperty(descriptor.getNamespaceURI(),
+                    descriptor.getPrefix(), descriptor.getLocalPart(), text, type);
+            loadAttributes(af, liElement);
+            return af;
         }
+
+        // PDFBOX-4325: assume it is structured
+        AbstractField af;
+        try
+        {
+            af = tm.instanciateStructuredType(type, descriptor.getLocalPart());
+        }
+        catch (BadFieldValueException ex)
+        {
+            throw new XmpParsingException(ErrorType.InvalidType, "Parsing of structured type failed", ex);
+        }
+        loadAttributes(af, liElement);
+        return af;
     }
 
     private void loadAttributes(AbstractField sp, Element element)
@@ -777,10 +765,7 @@ public class DomXmpParser
                 throw new XmpParsingException(ErrorType.XpacketBadEnd,
                         "Excepted xpacket 'end' attribute with value 'r' or 'w' ");
             }
-            else
-            {
-                metadata.setEndXPacket(Character.toString(end));
-            }
+            metadata.setEndXPacket(Character.toString(end));
         }
         else
         {
@@ -792,32 +777,32 @@ public class DomXmpParser
 
     private Element findDescriptionsParent(Element root) throws XmpParsingException
     {
-    	Element rdfRdf;
+        Element rdfRdf;
         // optional <x:xmpmeta xmlns:x="adobe:ns:meta/">
         XmpParsingException exXmp = expectNaming(root, "adobe:ns:meta/", "x", "xmpmeta");
         if ( exXmp==null ) {
-	        NodeList nl = root.getChildNodes();
-	        if (nl.getLength() == 0)
-	        {
-	            // empty description
-	            throw new XmpParsingException(ErrorType.Format, "No rdf description found in xmp");
-	        }
+            NodeList nl = root.getChildNodes();
+            if (nl.getLength() == 0)
+            {
+                // empty description
+                throw new XmpParsingException(ErrorType.Format, "No rdf description found in xmp");
+            }
 
-	        if (nl.getLength() > 1)
-	        {
-	            // only expect one element
-	            throw new XmpParsingException(ErrorType.Format, "More than one element found in x:xmpmeta");
-	        }
+            if (nl.getLength() > 1)
+            {
+                // only expect one element
+                throw new XmpParsingException(ErrorType.Format, "More than one element found in x:xmpmeta");
+            }
 
-	        if (!(root.getFirstChild() instanceof Element))
-	        {
-	            // should be an element
-	            throw new XmpParsingException(ErrorType.Format, "x:xmpmeta does not contains rdf:RDF element");
-	        }
-	        rdfRdf = (Element) root.getFirstChild();
+            if (!(root.getFirstChild() instanceof Element))
+            {
+                // should be an element
+                throw new XmpParsingException(ErrorType.Format, "x:xmpmeta does not contains rdf:RDF element");
+            }
+            rdfRdf = (Element) root.getFirstChild();
         }
         else {
-        	rdfRdf = root;
+            rdfRdf = root;
         }
 
         // always <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -860,10 +845,10 @@ public class DomXmpParser
      */
     private void removeComments(Node root)
     {
-    	// will hold the nodes which are to be deleted
-    	List<Node> forDeletion = new ArrayList<Node>();
+        // will hold the nodes which are to be deleted
+        List<Node> forDeletion = new ArrayList<Node>();
 
-    	NodeList nl = root.getChildNodes();
+        NodeList nl = root.getChildNodes();
 
         if (nl.getLength()<=1)
         {
@@ -877,15 +862,15 @@ public class DomXmpParser
             if (node instanceof Comment)
             {
                 // comments to be deleted
-            	forDeletion.add(node);
+                forDeletion.add(node);
             }
             else if (node instanceof Text)
             {
                 if (node.getTextContent().trim().isEmpty())
                 {
-                	// TODO: verify why this is necessary
-                	// empty text nodes to be deleted
-                	forDeletion.add(node);
+                    // TODO: verify why this is necessary
+                    // empty text nodes to be deleted
+                    forDeletion.add(node);
                 }
             }
             else if (node instanceof Element)
@@ -898,7 +883,7 @@ public class DomXmpParser
         // now remove the child nodes
         for (Node node : forDeletion)
         {
-        	root.removeChild(node);
+            root.removeChild(node);
         }
     }
 
