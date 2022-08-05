@@ -24,6 +24,7 @@ package org.apache.xmpbox.schema;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -856,15 +857,14 @@ public class XMPSchema extends AbstractStructuredType
      */
     public List<String> getUnqualifiedSequenceValueList(String seqName)
     {
-        ArrayProperty array = (ArrayProperty) getAbstractProperty(seqName);
-        if (array != null)
-        {
-            return array.getElementsAsString();
+        AbstractField field = getAbstractProperty(seqName);
+        if ( field instanceof ArrayProperty ) {
+            return ((ArrayProperty)field).getElementsAsString();
         }
-        else
-        {
-            return null;
+        if ( field instanceof TextType ) {
+            return Collections.singletonList(((TextType)field).getStringValue());
         }
+        return null;
     }
 
     /**
