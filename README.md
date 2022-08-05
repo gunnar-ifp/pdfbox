@@ -15,11 +15,21 @@
   limitations under the License.
 --->
 
+IMPORTANT
+---------
+This is an experimental fork of the orignal project implementing various improvements,
+mainly faster rendering and less memory consumption, but also add things here and there.
+I cannot guarantee production quality (or am not comfortable sending pull requests upstream),
+so things stay here for now.
+Since the 3.0 release is not there yet, development happens in a modified 2.0 branch with java 1.8 compatibility.
+You might also want to use the sped up jbig2 decoder library and maybe jpeg2000 library you will find among my repositories.
+
+
 Apache PDFBox <https://pdfbox.apache.org/>
 ===================================================
 
-The Apache PDFBox library is an open source Java tool for working with PDF 
-documents. This project allows creation of new PDF documents, manipulation 
+The Apache PDFBox library is an open source Java tool for working with PDF
+documents. This project allows creation of new PDF documents, manipulation
 of existing documents and the ability to extract content from documents.
 PDFBox also includes several command line utilities. PDFBox is published
 under the Apache License, Version 2.0.
@@ -47,13 +57,13 @@ other available build options.
 Contribute
 ----------
 
-There are various ways to help us improve PDFBox. 
+There are various ways to help us improve PDFBox.
 
 - look at the [Issue Tracker](https://issues.apache.org/jira/browse/PDFBOX) to help us fix bugs.
 - answer questions on our [Users Mailing List](https://pdfbox.apache.org/mailinglists.html "Subscribe to Mailing List").
 - help us enhance the [Examples](https://svn.apache.org/repos/asf/pdfbox/trunk/examples/)
 - help us to enhance the [PDFBox Documentation](https://git-wip-us.apache.org/repos/asf/pdfbox-docs)
-or on [GitHub](https://github.com/apache/pdfbox-docs). 
+or on [GitHub](https://github.com/apache/pdfbox-docs).
 
 Support
 -------
@@ -69,8 +79,8 @@ The PDFBox examples and the test code in the sources will also provide additiona
 And there are additional resources available on sites such as
 [Stack Overflow](https://stackoverflow.com/search?q=pdfbox "Stack Overflow").
 
-If you are sure you have found a bug the please report the issue in our 
-[Issue Tracker](https://issues.apache.org/jira/browse/PDFBOX). 
+If you are sure you have found a bug the please report the issue in our
+[Issue Tracker](https://issues.apache.org/jira/browse/PDFBOX).
 
 Known Limitations and Problems
 ------------------------------
@@ -92,8 +102,8 @@ common issues are:
 
 3. You get text that has the correct characters, but in the wrong
    order.  This mght be because you have not enabled sorting.  The text
-   in PDF files is stored in chunks and the chunks do not need to be stored 
-   in the order that they are displayed on a page.  By default, PDFBox does 
+   in PDF files is stored in chunks and the chunks do not need to be stored
+   in the order that they are displayed on a page.  By default, PDFBox does
    not sort the text.
 
 License (see also LICENSE.txt)
