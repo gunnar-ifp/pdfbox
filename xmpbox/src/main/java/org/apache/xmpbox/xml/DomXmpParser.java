@@ -452,6 +452,25 @@ public class DomXmpParser
         String name = property.getLocalName();
         String namespace = property.getNamespaceURI();
         Element bagOrSeq = DomHelper.getUniqueElementChild(property);
+
+        // if not parsing in strict mode, convert non empty text content of array nodes into a single list item.
+        if ( bagOrSeq==null && !strictParsing
+            && property.getChildNodes().getLength()==1 && property.getFirstChild() instanceof Text
+            && property.getFirstChild().getTextContent().trim().length()>0
+        ) {
+            Element element = property.getOwnerDocument().createElementNS(XmpConstants.RDF_NAMESPACE, XmpConstants.DEFAULT_RDF_PREFIX + ":li");
+            if ( type.type() == Types.LangAlt ) {
+                element.setAttributeNS(XMLConstants.XML_NS_URI, XMLConstants.XML_NS_PREFIX + ":lang", "x-default");
+            }
+            element.setTextContent(property.getTextContent());
+            ArrayProperty array = tm.createArrayProperty(namespace, prefix, name, type.card());
+            container.addProperty(array);
+            QName propertyQName = new QName(element.getLocalName());
+            AbstractField ast = parseLiElement(xmp, propertyQName, element, type.type());
+            if (ast != null) array.addProperty(ast);
+            return;
+        }
+
         // ensure this is the good type of array
         if (bagOrSeq == null)
         {
