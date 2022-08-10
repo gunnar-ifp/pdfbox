@@ -428,11 +428,8 @@ public class TrueTypeFont implements FontBoxFont, Closeable
         {
             return hmtx.getAdvanceWidth(gid);
         }
-        else
-        {
-            // this should never happen
-            return 250;
-        }
+        // this should never happen
+        return 250;
     }
 
     /**
@@ -449,11 +446,8 @@ public class TrueTypeFont implements FontBoxFont, Closeable
         {
             return vmtx.getAdvanceHeight(gid);
         }
-        else
-        {
-            // this should never happen
-            return 250;
-        }
+        // this should never happen
+        return 250;
     }
 
     @Override
@@ -464,10 +458,7 @@ public class TrueTypeFont implements FontBoxFont, Closeable
         {
             return namingTable.getPostScriptName();
         }
-        else
-        {
-            return null;
-        }
+        return null;
     }
 
     private synchronized void readPostScriptNames() throws IOException
@@ -547,8 +538,7 @@ public class TrueTypeFont implements FontBoxFont, Closeable
             GlyphSubstitutionTable table = getGsub();
             if (table != null)
             {
-                return new SubstitutingCmapLookup(cmap, (GlyphSubstitutionTable) table,
-                        Collections.unmodifiableList(enabledGsubFeatures));
+                return new SubstitutingCmapLookup(cmap, table, Collections.unmodifiableList(enabledGsubFeatures));
             }
         }
         return cmap;
@@ -563,10 +553,7 @@ public class TrueTypeFont implements FontBoxFont, Closeable
             {
                 throw new IOException("The TrueType font " + getName() + " does not contain a 'cmap' table");
             }
-            else
-            {
-                return null;
-            }
+            return null;
         }
 
         CmapSubtable cmap = cmapTable.getSubtable(CmapTable.PLATFORM_UNICODE,
@@ -627,13 +614,7 @@ public class TrueTypeFont implements FontBoxFont, Closeable
 
         // look up in 'cmap'
         int uni = parseUniName(name);
-        if (uni > -1)
-        {
-            CmapLookup cmap = getUnicodeCmapLookup(false);
-            return cmap.getGlyphId(uni);
-        }
-        
-        return 0;
+        return uni >= 0 ? getUnicodeCmapLookup(false).getGlyphId(uni) : 0;
     }
 
     /**
@@ -662,19 +643,10 @@ public class TrueTypeFont implements FontBoxFont, Closeable
     @Override
     public GeneralPath getPath(String name) throws IOException
     {
-        int gid = nameToGID(name);
-
         // some glyphs have no outlines (e.g. space, table, newline)
-        GlyphData glyph = getGlyph().getGlyph(gid);
-        if (glyph == null)
-        {
-            return new GeneralPath();
-        }
-        else
-        {
-            // must scaled by caller using FontMatrix
-            return glyph.getPath();
-        }
+        // path must scaled by caller using FontMatrix
+        GlyphData glyph = getGlyph().getGlyph(nameToGID(name));
+        return glyph == null ? new GeneralPath() : glyph.getPath(); 
     }
 
     @Override
@@ -745,14 +717,7 @@ public class TrueTypeFont implements FontBoxFont, Closeable
         try
         {
             NamingTable namingTable = getNaming();
-            if (namingTable != null)
-            {
-                return namingTable.getPostScriptName();
-            }
-            else
-            {
-                return "(null)";
-            }
+            return namingTable == null ? "(null)" : namingTable.getPostScriptName();
         }
         catch (IOException e)
         {
