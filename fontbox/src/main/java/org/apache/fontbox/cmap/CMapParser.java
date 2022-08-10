@@ -39,6 +39,11 @@ public class CMapParser
     private static final String MARK_END_OF_DICTIONARY = ">>";
     private static final String MARK_END_OF_ARRAY = "]";
 
+    private final static String[] ISO_8859_1 = new String[256];
+    static {
+        for ( int i = 0; i < 256; i++ ) ISO_8859_1[i] = String.valueOf((char)i); //.intern();
+    }
+    
     private final byte[] tokenParserByteBuffer = new byte[512];
 
     private boolean strictMode = false;
@@ -484,9 +489,9 @@ public class CMapParser
      * @throws IOException if the CMap resource doesn't exist or if there is an error opening its
      * stream.
      */
-    protected InputStream getExternalCMap(String name) throws IOException
+    protected static InputStream getExternalCMap(String name) throws IOException
     {
-        InputStream resourceAsStream = getClass().getResourceAsStream(name);
+        InputStream resourceAsStream = CMapParser.class.getResourceAsStream(name);
         if (resourceAsStream == null)
         {
             throw new IOException("Error: Could not find referenced cmap stream " + name);
@@ -720,7 +725,7 @@ public class CMapParser
         return retval;
     }
 
-    private void readUntilEndOfLine(InputStream is, StringBuilder buf) throws IOException
+    private static void readUntilEndOfLine(InputStream is, StringBuilder buf) throws IOException
     {
         int nextByte = is.read();
         while (nextByte != -1 && nextByte != 0x0D && nextByte != 0x0A)
@@ -730,13 +735,13 @@ public class CMapParser
         }
     }
 
-    private boolean isWhitespaceOrEOF(int aByte)
+    private static boolean isWhitespaceOrEOF(int aByte)
     {
         return aByte == -1 || aByte == 0x20 || aByte == 0x0D || aByte == 0x0A;
     }
 
     /** Is this a standard PDF delimiter character? */
-    private boolean isDelimiter(int aByte) 
+    private static boolean isDelimiter(int aByte) 
     {
         switch (aByte) 
         {
@@ -756,9 +761,9 @@ public class CMapParser
         }
     }
 
-    private boolean increment(byte[] data, int position, boolean useStrictMode)
+    private static boolean increment(byte[] data, int position, boolean useStrictMode)
     {
-        if (position > 0 && (data[position] & 0xFF) == 255)
+        if (position > 0 && data[position]==-1)
         {
             // PDFBOX-4661: avoid overflow of the last byte, all following values are undefined
             // PDFBOX-5090: strict mode has to be used for CMaps within pdfs
@@ -771,25 +776,20 @@ public class CMapParser
         }
         else
         {
-            data[position] = (byte) (data[position] + 1);
+            data[position]++;
         }
         return true;
     }
 
-    private int createIntFromBytes(byte[] bytes)
+    private static int createIntFromBytes(byte[] bytes)
     {
-        int intValue = bytes[0] & 0xFF;
-        if (bytes.length == 2)
-        {
-            intValue <<= 8;
-            intValue += bytes[1] & 0xFF;
-        }
-        return intValue;
+        int value = bytes[0] & 0xFF;
+        return bytes.length == 2 ? (value << 8) | (bytes[1] & 0xFF) : value;
     }
 
-    private String createStringFromBytes(byte[] bytes)
+    private static String createStringFromBytes(byte[] bytes)
     {
-        return new String(bytes, bytes.length == 1 ? Charsets.ISO_8859_1 : Charsets.UTF_16BE);
+        return bytes.length == 1 ? ISO_8859_1[bytes[0] & 0xff] : new String(bytes, Charsets.UTF_16BE);
     }
 
     /**
