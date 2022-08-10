@@ -39,7 +39,7 @@ public class NamingTable extends TTFTable
     
     private List<NameRecord> nameRecords;
 
-    private Map<Integer, Map<Integer, Map<Integer, Map<Integer, String>>>> lookupTable;
+    private Map<Long, String> lookupTable;
 
     private String fontFamily = null;
     private String fontSubFamily = null;
@@ -114,33 +114,12 @@ public class NamingTable extends TTFTable
             nr.setString(string);
         }
 
-        // build multi-dimensional lookup table
-        lookupTable = new HashMap<Integer, Map<Integer, Map<Integer, Map<Integer, String>>>>(nameRecords.size());
+        // build lookup table
+        lookupTable = new HashMap<Long, String>(nameRecords.size());
         for (NameRecord nr : nameRecords)
         {
-            // name id
-            Map<Integer, Map<Integer, Map<Integer, String>>> platformLookup = lookupTable.get(nr.getNameId());
-            if (platformLookup == null)
-            {
-                platformLookup = new HashMap<Integer, Map<Integer, Map<Integer, String>>>(); 
-                lookupTable.put(nr.getNameId(), platformLookup);
-            }
-            // platform id
-            Map<Integer, Map<Integer, String>> encodingLookup = platformLookup.get(nr.getPlatformId());
-            if (encodingLookup == null)
-            {
-                encodingLookup = new HashMap<Integer, Map<Integer, String>>();
-                platformLookup.put(nr.getPlatformId(), encodingLookup);
-            }
-            // encoding id
-            Map<Integer, String> languageLookup = encodingLookup.get(nr.getPlatformEncodingId());
-            if (languageLookup == null)
-            {
-                languageLookup = new HashMap<Integer, String>();
-                encodingLookup.put(nr.getPlatformEncodingId(), languageLookup);
-            }
-            // language id / string
-            languageLookup.put(nr.getLanguageId(), nr.getString());
+            long key = createLookupKey(nr.getNameId(), nr.getPlatformId(), nr.getPlatformEncodingId(), nr.getLanguageId());
+            lookupTable.put(key, nr.getString());
         }
 
         // extract strings of interest
@@ -215,22 +194,7 @@ public class NamingTable extends TTFTable
      */
     public String getName(int nameId, int platformId, int encodingId, int languageId)
     {
-        Map<Integer, Map<Integer, Map<Integer, String>>> platforms = lookupTable.get(nameId);
-        if (platforms == null)
-        {
-            return null;
-        }
-        Map<Integer, Map<Integer, String>> encodings = platforms.get(platformId);
-        if (encodings == null)
-        {
-            return null;
-        }
-        Map<Integer, String> languages = encodings.get(encodingId);
-        if (languages == null)
-        {
-            return null;
-        }
-        return languages.get(languageId);
+        return lookupTable.get(createLookupKey(nameId, platformId, encodingId, languageId));
     }
 
     /**
@@ -272,4 +236,11 @@ public class NamingTable extends TTFTable
     {
         return psName;
     }
+    
+    
+    private static long createLookupKey(int nameId, int platformId, int encodingId, int languageId)
+    {
+        return (0xffff & nameId) << 48 | (0xffff & platformId) << 32 | (0xffff & encodingId) << 16 | (0xffff & languageId); 
+    }
+    
 }

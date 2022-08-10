@@ -20,6 +20,8 @@ import java.io.IOException;
 
 /**
  * A name record in the name table.
+ * <br>
+ * All numerical values are unsigned shorts.
  * 
  * @author Ben Litchfield
  */
@@ -99,6 +101,7 @@ public class NameRecord
      */
     public void setStringLength(int stringLengthValue)
     {
+        if ( stringLengthValue >> 16 != 0 ) throw new IllegalArgumentException("stringLength must be unsigned short");
         this.stringLength = stringLengthValue;
     }
     /**
@@ -113,6 +116,7 @@ public class NameRecord
      */
     public void setStringOffset(int stringOffsetValue)
     {
+        if ( stringOffsetValue >> 16 != 0 ) throw new IllegalArgumentException("stringOffset must be unsigned short");
         this.stringOffset = stringOffsetValue;
     }
     
@@ -128,6 +132,7 @@ public class NameRecord
      */
     public void setLanguageId(int languageIdValue)
     {
+        if ( languageIdValue >> 16 != 0 ) throw new IllegalArgumentException("languageId must be unsigned short");
         this.languageId = languageIdValue;
     }
     /**
@@ -142,6 +147,7 @@ public class NameRecord
      */
     public void setNameId(int nameIdValue)
     {
+        if ( nameIdValue >> 16 != 0 ) throw new IllegalArgumentException("nameId must be unsigned short");
         this.nameId = nameIdValue;
     }
     /**
@@ -156,6 +162,7 @@ public class NameRecord
      */
     public void setPlatformEncodingId(int platformEncodingIdValue)
     {
+        if ( platformEncodingIdValue >> 16 != 0 ) throw new IllegalArgumentException("platformEncodingId must be unsigned short");
         this.platformEncodingId = platformEncodingIdValue;
     }
     /**
@@ -170,6 +177,7 @@ public class NameRecord
      */
     public void setPlatformId(int platformIdValue)
     {
+        if ( platformIdValue >> 16 != 0 ) throw new IllegalArgumentException("platformId must be unsigned short");
         this.platformId = platformIdValue;
     }
     
@@ -195,6 +203,7 @@ public class NameRecord
      * 
      * @return A string for this class.
      */
+    @Override
     public String toString()
     {
         return 
