@@ -17,6 +17,7 @@
 package org.apache.fontbox.util;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * This class provides an instance of all common charsets used to transform byte arrays into strings. 
@@ -29,19 +30,19 @@ public final class Charsets
     /**
      * ISO-8859-1 Charset
      */
-    public static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
+    public static final Charset ISO_8859_1 = StandardCharsets.ISO_8859_1;
     /**
      * UTF-16 Charset
      */
-    public static final Charset UTF_16 = Charset.forName("UTF-16");
+    public static final Charset UTF_16 = StandardCharsets.UTF_16;
     /**
      * UTF-16BE Charset
      */
-    public static final Charset UTF_16BE = Charset.forName("UTF-16BE");
+    public static final Charset UTF_16BE = StandardCharsets.UTF_16BE;
     /**
      * US-ASCII Charset
      */
-    public static final Charset US_ASCII = Charset.forName("US-ASCII");
+    public static final Charset US_ASCII = StandardCharsets.US_ASCII;
     /**
      * ISO-10646 Charset
      */
