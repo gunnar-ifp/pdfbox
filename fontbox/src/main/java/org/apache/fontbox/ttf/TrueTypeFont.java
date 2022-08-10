@@ -123,16 +123,18 @@ public class TrueTypeFont implements FontBoxFont, Closeable
      */
     public synchronized byte[] getTableBytes(TTFTable table) throws IOException
     {
-        // save current position
-        long currentPosition = data.getCurrentPosition();
-        data.seek(table.getOffset());
-
-        // read all data
-        byte[] bytes = data.read((int)table.getLength());
-
-        // restore current position
-        data.seek(currentPosition);
-        return bytes;
+        synchronized (data) {
+            // save current position
+            long currentPosition = data.getCurrentPosition();
+            data.seek(table.getOffset());
+    
+            // read all data
+            byte[] bytes = data.read((int)table.getLength());
+    
+            // restore current position
+            data.seek(currentPosition);
+            return bytes;
+        }
     }
 
     /**
