@@ -17,6 +17,8 @@
 package org.apache.fontbox.ttf;
 
 import java.io.IOException;
+import java.util.Arrays;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -74,8 +76,7 @@ public class PostScriptTable extends TTFTable
             /*
              * This TrueType font file contains exactly the 258 glyphs in the standard Macintosh TrueType.
              */
-            glyphNames = new String[WGL4Names.NUMBER_OF_MAC_GLYPHS];
-            System.arraycopy(WGL4Names.MAC_GLYPH_NAMES, 0, glyphNames, 0, WGL4Names.NUMBER_OF_MAC_GLYPHS);
+            glyphNames = Arrays.copyOf(WGL4Names.MAC_GLYPH_NAMES, WGL4Names.NUMBER_OF_MAC_GLYPHS);
         }
         else if (formatType == 2.0f)
         {
