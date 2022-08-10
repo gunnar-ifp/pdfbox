@@ -641,30 +641,19 @@ public class TrueTypeFont implements FontBoxFont, Closeable
      */
     private int parseUniName(String name)
     {
-        if (name.startsWith("uni") && name.length() == 7)
+        if (name.length() == 7 && name.startsWith("uni"))
         {
-            int nameLength = name.length();
-            StringBuilder uniStr = new StringBuilder();
             try
             {
-                for (int chPos = 3; chPos + 4 <= nameLength; chPos += 4)
+                // parse hex code and skip disallowed code area
+                int codePoint = Integer.parseUnsignedInt(name.substring(3), 16);
+                if (codePoint <= 0xD7FF || codePoint >= 0xE000)
                 {
-                    int codePoint = Integer.parseInt(name.substring(chPos, chPos + 4), 16);
-                    if (codePoint <= 0xD7FF || codePoint >= 0xE000) // disallowed code area
-                    {
-                        uniStr.append((char) codePoint);
-                    }
+                    return codePoint;
                 }
-                String unicode = uniStr.toString();
-                if (unicode.length() == 0)
-                {
-                    return -1;
-                }
-                return unicode.codePointAt(0);
             }
             catch (NumberFormatException e)
             {
-                return -1;
             }
         }
         return -1;
