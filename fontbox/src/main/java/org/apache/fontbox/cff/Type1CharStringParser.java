@@ -98,7 +98,7 @@ public class Type1CharStringParser
                     parse(subrBytes, subrs, sequence);
                     Object lastItem = sequence.get(sequence.size()-1);
                     if (lastItem instanceof CharStringCommand &&
-                          ((CharStringCommand)lastItem).getKey().getValue()[0] == RETURN)
+                          ((CharStringCommand)lastItem).getValue(0) == RETURN)
                     {
                         sequence.remove(sequence.size()-1); // remove "return" command
                     }
@@ -133,12 +133,12 @@ public class Type1CharStringParser
                         sequence.remove(sequence.size() - 1);
                         // end flex
                         sequence.add(0);
-                        sequence.add(new CharStringCommand(TWO_BYTE, CALLOTHERSUBR));
+                        sequence.add(CharStringCommand.get(TWO_BYTE, CALLOTHERSUBR));
                         break;
                     case 1:
                         // begin flex
                         sequence.add(1);
-                        sequence.add(new CharStringCommand(TWO_BYTE, CALLOTHERSUBR));
+                        sequence.add(CharStringCommand.get(TWO_BYTE, CALLOTHERSUBR));
                         break;
                     case 3:
                         // allows hint replacement
@@ -194,13 +194,13 @@ public class Type1CharStringParser
         CharStringCommand command = (CharStringCommand) item;
 
         // div
-        if (command.getKey().getValue()[0] == 12 && command.getKey().getValue()[1] == 12)
+        if (command.getValue(0) == 12 && command.getValue(1) == 12)
         {
             int a = (Integer) sequence.remove(sequence.size() - 1);
             int b = (Integer) sequence.remove(sequence.size() - 1);
             return b / a;
         }
-        throw new IOException("Unexpected char string command: " + command.getKey());
+        throw new IOException("Unexpected char string command: " + command);
     }
 
     private CharStringCommand readCommand(DataInput input, int b0) throws IOException
@@ -208,9 +208,9 @@ public class Type1CharStringParser
         if (b0 == 12)
         {
             int b1 = input.readUnsignedByte();
-            return new CharStringCommand(b0, b1);
+            return CharStringCommand.get(b0, b1);
         }
-        return new CharStringCommand(b0);
+        return CharStringCommand.get(b0);
     }
 
     private Integer readNumber(DataInput input, int b0) throws IOException

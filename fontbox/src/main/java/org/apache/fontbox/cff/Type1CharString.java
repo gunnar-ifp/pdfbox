@@ -165,7 +165,7 @@ public class Type1CharString
     private List<Number> handleCommand(List<Number> numbers, CharStringCommand command)
     {
         commandCount++;
-        String name = CharStringCommand.TYPE1_VOCABULARY.get(command.getKey());
+        String name = CharStringCommand.TYPE1_VOCABULARY.get(command);
 
         if ("rmoveto".equals(name))
         {
@@ -338,7 +338,7 @@ public class Type1CharString
         else
         {
             // indicates an invalid charstring
-            LOG.warn("Unknown charstring command: " + command.getKey() + " in glyph " + glyphName +
+            LOG.warn("Unknown charstring command: " + command + " in glyph " + glyphName +
                      " of font " + fontName);
         }
         return null;

@@ -18,6 +18,7 @@ package org.apache.fontbox.cff;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -28,228 +29,178 @@ import java.util.Map;
  */
 public class CharStringCommand
 {
-
-    private Key commandKey = null;
+    private static final Map<IntArrayKey, CharStringCommand> INTERN = new HashMap<>(80);
+    
+    private final int[] keyValues;
 
     /**
      * Constructor with one value.
      * 
      * @param b0 value
      */
-    public CharStringCommand(int b0)
+    public static CharStringCommand get(int b0)
     {
-        setKey(new Key(b0));
+        return get(new int[] { b0 });
     }
 
+    
     /**
      * Constructor with two values.
      * 
      * @param b0 value1
      * @param b1 value2
      */
-    public CharStringCommand(int b0, int b1)
+    public static CharStringCommand get(int b0, int b1)
     {
-        setKey(new Key(b0, b1));
+        return get(new int[] { b0, b1 });
     }
 
+    
     /**
      * Constructor with an array as values.
      * 
      * @param values array of values
      */
-    public CharStringCommand(int[] values)
+    public static CharStringCommand get(int[] values)
     {
-        setKey(new Key(values));
+        CharStringCommand cached = INTERN.get(new IntArrayKey(values));
+        return cached==null ? new CharStringCommand(values) : cached;
     }
 
+    
     /**
-     * The key of the CharStringCommand.
-     * @return the key
+     * Constructor with an array as values.
+     * 
+     * @param values array of values
      */
-    public Key getKey()
+    private CharStringCommand(int[] values)
     {
-        return commandKey;
+        this.keyValues = values;
     }
-
-    private void setKey(Key key)
+    
+    
+    public int getValue(int index) throws ArrayIndexOutOfBoundsException
     {
-        commandKey = key;
+        return keyValues[index];
     }
-
-    /**
-     * {@inheritDoc}
-     */
+    
+    
     @Override
     public String toString()
     {
-        String str = TYPE2_VOCABULARY.get(getKey());
+        String str = TYPE2_VOCABULARY.get(this);
         if (str == null)
         {
-            str = TYPE1_VOCABULARY.get(getKey());
+            str = TYPE1_VOCABULARY.get(this);
         }
         if (str == null)
         {
-            return getKey().toString() + '|';
+            return Arrays.toString(keyValues) + '|';
         }
         return str + '|';
     }
 
-    /**
-     * {@inheritDoc}
-     */
+
     @Override
     public int hashCode()
     {
-        return getKey().hashCode();
+        if (keyValues[0] == 12 && keyValues.length > 1)
+        {
+            return keyValues[0] ^ keyValues[1];
+        }
+        return keyValues[0];        
     }
 
-    /**
-     * {@inheritDoc}
-     */
+
     @Override
     public boolean equals(Object object)
     {
         if (object instanceof CharStringCommand)
         {
             CharStringCommand that = (CharStringCommand) object;
-            return getKey().equals(that.getKey());
+            if (keyValues[0] == 12 && that.keyValues[0] == 12)
+            {
+                if (keyValues.length > 1 && that.keyValues.length > 1)
+                {
+                    return keyValues[1] == that.keyValues[1];
+                }
+                return keyValues.length == that.keyValues.length;
+            }
+            return keyValues[0] == that.keyValues[0];
         }
-        return false;
+        return false;        
     }
+    
+    
+    private CharStringCommand intern()
+    {
+        IntArrayKey key = new IntArrayKey(keyValues);
+        CharStringCommand cached = INTERN.putIfAbsent(key, this);
+        return cached==null ? this : cached;
+    }
+    
 
     /**
-     * A static class to hold one or more int values as key. 
+     * A static class to hold one or more int values as key for a hashmap. 
      */
-    public static class Key
+    private static class IntArrayKey
     {
+        private final int[] values;
+        private final int hashcode;
 
-        private int[] keyValues = null;
-
-        /**
-         * Constructor with one value.
-         * 
-         * @param b0 value
-         */
-        public Key(int b0)
+        public IntArrayKey(int[] values)
         {
-            setValue(new int[] { b0 });
+            this.values = values;
+            this.hashcode = Arrays.hashCode(values);
         }
 
-        /**
-         * Constructor with two values.
-         * 
-         * @param b0 value1
-         * @param b1 value2
-         */
-        public Key(int b0, int b1)
-        {
-            setValue(new int[] { b0, b1 });
-        }
-
-        /**
-         * Constructor with an array as values.
-         * 
-         * @param values array of values
-         */
-        public Key(int[] values)
-        {
-            setValue(values);
-        }
-
-        /**
-         * Array the with the values.
-         * 
-         * @return array with the values
-         */
-        public int[] getValue()
-        {
-            return keyValues;
-        }
-
-        private void setValue(int[] value)
-        {
-            keyValues = value;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public String toString()
-        {
-            return Arrays.toString(getValue());
-        }
-
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public int hashCode()
         {
-            if (keyValues[0] == 12 && keyValues.length > 1)
-            {
-                return keyValues[0] ^ keyValues[1];
-            }
-            return keyValues[0];
+            return hashcode;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public boolean equals(Object object)
         {
-            if (object instanceof Key)
-            {
-                Key that = (Key) object;
-                if (keyValues[0] == 12 && that.keyValues[0] == 12)
-                {
-                    if (keyValues.length > 1 && that.keyValues.length > 1)
-                    {
-                        return keyValues[1] == that.keyValues[1];
-                    }
-                    return keyValues.length == that.keyValues.length;
-                }
-                return keyValues[0] == that.keyValues[0];
-            }
-            return false;
+            return object instanceof IntArrayKey && Arrays.equals(values, ((IntArrayKey)object).values);
         }
     }
 
     /**
      * A map with the Type1 vocabulary.
      */
-    public static final Map<Key, String> TYPE1_VOCABULARY;
+    public static final Map<CharStringCommand, String> TYPE1_VOCABULARY;
 
     static
     {
-        Map<Key, String> map = new LinkedHashMap<Key, String>(26);
-        map.put(new Key(1), "hstem");
-        map.put(new Key(3), "vstem");
-        map.put(new Key(4), "vmoveto");
-        map.put(new Key(5), "rlineto");
-        map.put(new Key(6), "hlineto");
-        map.put(new Key(7), "vlineto");
-        map.put(new Key(8), "rrcurveto");
-        map.put(new Key(9), "closepath");
-        map.put(new Key(10), "callsubr");
-        map.put(new Key(11), "return");
-        map.put(new Key(12), "escape");
-        map.put(new Key(12, 0), "dotsection");
-        map.put(new Key(12, 1), "vstem3");
-        map.put(new Key(12, 2), "hstem3");
-        map.put(new Key(12, 6), "seac");
-        map.put(new Key(12, 7), "sbw");
-        map.put(new Key(12, 12), "div");
-        map.put(new Key(12, 16), "callothersubr");
-        map.put(new Key(12, 17), "pop");
-        map.put(new Key(12, 33), "setcurrentpoint");
-        map.put(new Key(13), "hsbw");
-        map.put(new Key(14), "endchar");
-        map.put(new Key(21), "rmoveto");
-        map.put(new Key(22), "hmoveto");
-        map.put(new Key(30), "vhcurveto");
-        map.put(new Key(31), "hvcurveto");
+        Map<CharStringCommand, String> map = new LinkedHashMap<>(26);
+        map.put(get(1).intern(), "hstem");
+        map.put(get(3).intern(), "vstem");
+        map.put(get(4).intern(), "vmoveto");
+        map.put(get(5).intern(), "rlineto");
+        map.put(get(6).intern(), "hlineto");
+        map.put(get(7).intern(), "vlineto");
+        map.put(get(8).intern(), "rrcurveto");
+        map.put(get(9).intern(), "closepath");
+        map.put(get(10).intern(), "callsubr");
+        map.put(get(11).intern(), "return");
+        map.put(get(12).intern(), "escape");
+        map.put(get(12, 0).intern(), "dotsection");
+        map.put(get(12, 1).intern(), "vstem3");
+        map.put(get(12, 2).intern(), "hstem3");
+        map.put(get(12, 6).intern(), "seac");
+        map.put(get(12, 7).intern(), "sbw");
+        map.put(get(12, 12).intern(), "div");
+        map.put(get(12, 16).intern(), "callothersubr");
+        map.put(get(12, 17).intern(), "pop");
+        map.put(get(12, 33).intern(), "setcurrentpoint");
+        map.put(get(13).intern(), "hsbw");
+        map.put(get(14).intern(), "endchar");
+        map.put(get(21).intern(), "rmoveto");
+        map.put(get(22).intern(), "hmoveto");
+        map.put(get(30).intern(), "vhcurveto");
+        map.put(get(31).intern(), "hvcurveto");
 
         TYPE1_VOCABULARY = Collections.unmodifiableMap(map);
     }
@@ -257,60 +208,60 @@ public class CharStringCommand
     /**
      * A map with the Type2 vocabulary.
      */
-    public static final Map<Key, String> TYPE2_VOCABULARY;
+    public static final Map<CharStringCommand, String> TYPE2_VOCABULARY;
 
     static
     {
-        Map<Key, String> map = new LinkedHashMap<Key, String>(48);
-        map.put(new Key(1), "hstem");
-        map.put(new Key(3), "vstem");
-        map.put(new Key(4), "vmoveto");
-        map.put(new Key(5), "rlineto");
-        map.put(new Key(6), "hlineto");
-        map.put(new Key(7), "vlineto");
-        map.put(new Key(8), "rrcurveto");
-        map.put(new Key(10), "callsubr");
-        map.put(new Key(11), "return");
-        map.put(new Key(12), "escape");
-        map.put(new Key(12, 3), "and");
-        map.put(new Key(12, 4), "or");
-        map.put(new Key(12, 5), "not");
-        map.put(new Key(12, 9), "abs");
-        map.put(new Key(12, 10), "add");
-        map.put(new Key(12, 11), "sub");
-        map.put(new Key(12, 12), "div");
-        map.put(new Key(12, 14), "neg");
-        map.put(new Key(12, 15), "eq");
-        map.put(new Key(12, 18), "drop");
-        map.put(new Key(12, 20), "put");
-        map.put(new Key(12, 21), "get");
-        map.put(new Key(12, 22), "ifelse");
-        map.put(new Key(12, 23), "random");
-        map.put(new Key(12, 24), "mul");
-        map.put(new Key(12, 26), "sqrt");
-        map.put(new Key(12, 27), "dup");
-        map.put(new Key(12, 28), "exch");
-        map.put(new Key(12, 29), "index");
-        map.put(new Key(12, 30), "roll");
-        map.put(new Key(12, 34), "hflex");
-        map.put(new Key(12, 35), "flex");
-        map.put(new Key(12, 36), "hflex1");
-        map.put(new Key(12, 37), "flex1");
-        map.put(new Key(14), "endchar");
-        map.put(new Key(18), "hstemhm");
-        map.put(new Key(19), "hintmask");
-        map.put(new Key(20), "cntrmask");
-        map.put(new Key(21), "rmoveto");
-        map.put(new Key(22), "hmoveto");
-        map.put(new Key(23), "vstemhm");
-        map.put(new Key(24), "rcurveline");
-        map.put(new Key(25), "rlinecurve");
-        map.put(new Key(26), "vvcurveto");
-        map.put(new Key(27), "hhcurveto");
-        map.put(new Key(28), "shortint");
-        map.put(new Key(29), "callgsubr");
-        map.put(new Key(30), "vhcurveto");
-        map.put(new Key(31), "hvcurveto");
+        Map<CharStringCommand, String> map = new LinkedHashMap<>(48);
+        map.put(get(1).intern(), "hstem");
+        map.put(get(3).intern(), "vstem");
+        map.put(get(4).intern(), "vmoveto");
+        map.put(get(5).intern(), "rlineto");
+        map.put(get(6).intern(), "hlineto");
+        map.put(get(7).intern(), "vlineto");
+        map.put(get(8).intern(), "rrcurveto");
+        map.put(get(10).intern(), "callsubr");
+        map.put(get(11).intern(), "return");
+        map.put(get(12).intern(), "escape");
+        map.put(get(12, 3).intern(), "and");
+        map.put(get(12, 4).intern(), "or");
+        map.put(get(12, 5).intern(), "not");
+        map.put(get(12, 9).intern(), "abs");
+        map.put(get(12, 10).intern(), "add");
+        map.put(get(12, 11).intern(), "sub");
+        map.put(get(12, 12).intern(), "div");
+        map.put(get(12, 14).intern(), "neg");
+        map.put(get(12, 15).intern(), "eq");
+        map.put(get(12, 18).intern(), "drop");
+        map.put(get(12, 20).intern(), "put");
+        map.put(get(12, 21).intern(), "get");
+        map.put(get(12, 22).intern(), "ifelse");
+        map.put(get(12, 23).intern(), "random");
+        map.put(get(12, 24).intern(), "mul");
+        map.put(get(12, 26).intern(), "sqrt");
+        map.put(get(12, 27).intern(), "dup");
+        map.put(get(12, 28).intern(), "exch");
+        map.put(get(12, 29).intern(), "index");
+        map.put(get(12, 30).intern(), "roll");
+        map.put(get(12, 34).intern(), "hflex");
+        map.put(get(12, 35).intern(), "flex");
+        map.put(get(12, 36).intern(), "hflex1");
+        map.put(get(12, 37).intern(), "flex1");
+        map.put(get(14).intern(), "endchar");
+        map.put(get(18).intern(), "hstemhm");
+        map.put(get(19).intern(), "hintmask");
+        map.put(get(20).intern(), "cntrmask");
+        map.put(get(21).intern(), "rmoveto");
+        map.put(get(22).intern(), "hmoveto");
+        map.put(get(23).intern(), "vstemhm");
+        map.put(get(24).intern(), "rcurveline");
+        map.put(get(25).intern(), "rlinecurve");
+        map.put(get(26).intern(), "vvcurveto");
+        map.put(get(27).intern(), "hhcurveto");
+        map.put(get(28).intern(), "shortint");
+        map.put(get(29).intern(), "callgsubr");
+        map.put(get(30).intern(), "vhcurveto");
+        map.put(get(31).intern(), "hvcurveto");
 
         TYPE2_VOCABULARY = Collections.unmodifiableMap(map);
     }
