@@ -128,14 +128,13 @@ public class CFFType1Font extends CFFFont implements EncodedFont
         if (type2 == null)
         {
             byte[] bytes = null;
-            if (gid < charStrings.length)
+            if (gid == 0 || gid < charStrings.length)
             {
                 bytes = charStrings[gid];
             }
-            if (bytes == null)
+            if (bytes == null && gid != 0)
             {
-                // .notdef
-                bytes = charStrings[0];
+                return getType2CharString(0);
             }
             Type2CharStringParser parser = new Type2CharStringParser(fontName, name);
             List<Object> type2seq = parser.parse(bytes, globalSubrIndex, getLocalSubrIndex());

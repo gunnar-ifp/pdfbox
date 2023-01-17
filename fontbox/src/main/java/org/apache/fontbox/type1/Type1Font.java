@@ -196,6 +196,7 @@ public final class Type1Font implements Type1CharStringReader, EncodedFont, Font
             byte[] bytes = charstrings.get(name);
             if (bytes == null)
             {
+                if ( !".notdef".equals(name) ) return getType1CharString(".notdef");
                 bytes = charstrings.get(".notdef");
             }
             Type1CharStringParser parser = new Type1CharStringParser(fontName, name);
