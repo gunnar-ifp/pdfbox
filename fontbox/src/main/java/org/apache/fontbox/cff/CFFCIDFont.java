@@ -44,6 +44,8 @@ public class CFFCIDFont extends CFFFont
     private final Map<Integer, CIDKeyedType2CharString> charStringCache =
             new ConcurrentHashMap<Integer, CIDKeyedType2CharString>();
 
+    volatile int cid0 = -1;
+    
     private final PrivateType1CharStringReader reader = new PrivateType1CharStringReader();
 
     /**
@@ -220,16 +222,19 @@ public class CFFCIDFont extends CFFFont
      * @throws IOException if the charstring could not be read
      */
     @Override
-    public CIDKeyedType2CharString getType2CharString(int cid) throws IOException
+    public CIDKeyedType2CharString getType2CharString(final int cid) throws IOException
     {
         CIDKeyedType2CharString type2 = charStringCache.get(cid);
         if (type2 == null)
         {
-            int gid = charset.getGIDForCID(cid);
+            final int gid = charset.getGIDForCID(cid);
 
             byte[] bytes = charStrings[gid];
-            if (bytes == null)
+            if (bytes == null || gid == 0)
             {
+                int c0 = cid0;
+                if ( c0<0 ) cid0 = c0 = charset.getCIDForGID(0);
+                if ( c0!=cid ) return getType2CharString(c0);
                 bytes = charStrings[0]; // .notdef
             }
             Type2CharStringParser parser = new Type2CharStringParser(fontName, cid);
