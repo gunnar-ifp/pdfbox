@@ -113,7 +113,7 @@ public class Type2CharStringParser
                     byte[] subrBytes = localSubrIndex[subrNumber];
                     parse(subrBytes, globalSubrIndex, localSubrIndex, false);
                     Object lastItem=sequence.get(sequence.size()-1);
-                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getValue(0) == 11)
+                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0() == 11)
                     {
                         sequence.remove(sequence.size()-1); // remove "return" command
                     }
@@ -146,7 +146,7 @@ public class Type2CharStringParser
                     byte[] subrBytes = globalSubrIndex[subrNumber];
                     parse(subrBytes, globalSubrIndex, localSubrIndex, false);
                     Object lastItem=sequence.get(sequence.size()-1);
-                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getValue(0)==11) 
+                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0()==11) 
                     {
                         sequence.remove(sequence.size()-1); // remove "return" command
                     }
@@ -193,22 +193,14 @@ public class Type2CharStringParser
         {
             int b1 = input.readUnsignedByte();
 
-            return CharStringCommand.get(b0, b1);
+            return CharStringCommand.getInstance(b0, b1);
         } 
         else if (b0 == 19 || b0 == 20)
         {
-            int[] value = new int[1 + getMaskLength()];
-            value[0] = b0;
-
-            for (int i = 1; i < value.length; i++)
-            {
-                value[i] = input.readUnsignedByte();
-            }
-
-            return CharStringCommand.get(value);
+            for (int i = getMaskLength(); i > 0; i--) input.readUnsignedByte();
         }
 
-        return CharStringCommand.get(b0);
+        return CharStringCommand.getInstance(b0);
     }
 
     private Number readNumber(int b0, DataInput input) throws IOException

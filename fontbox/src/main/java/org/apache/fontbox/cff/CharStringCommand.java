@@ -17,252 +17,356 @@
 package org.apache.fontbox.cff;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * This class represents a CharStringCommand.
+ * <p>
+ * Instance of this class are static and can be compared using {code}=={code}.
  * 
  * @author Villu Ruusmann
  */
 public class CharStringCommand
 {
-    private static final Map<IntArrayKey, CharStringCommand> INTERN = new HashMap<>(80);
+    private static final CharStringCommand UNKNOWN = new CharStringCommand(null, null);
     
-    private final int[] keyValues;
+    private static final CharStringCommand[] SINGLE;
+    private static final CharStringCommand[] DOUBLE;
+    static {
+        Map<Integer, CharStringCommand> all = new HashMap<>(80);
+        Map<Integer, Type2KeyWord> temp = new HashMap<>(128);
+        for ( Type2KeyWord t : Type2KeyWord.values() ) temp.put(code(t), t);
+        for ( Type1KeyWord t : Type1KeyWord.values() ) {
+            all.put(code(t), new CharStringCommand(t, temp.get(code(t))));
+        }
+        for ( Type2KeyWord t : Type2KeyWord.values() ) {
+            if ( !all.containsKey(code(t)) )  {
+                all.put(code(t), new CharStringCommand(null, temp.get(code(t))));
+            }
+        }
+        
+        // Note: this code assumes all double byte commands have the same b0.
+        // If there is a perfect 1:1 hash function to map b0 and b1 into 6 bit,
+        // then we could maybe use a single array (b0 is 27 values 5 bits and b1 is 32 values in 6 bits).
+        int max0 = -1, max1 = -1;
+        for ( CharStringCommand c : all.values() ) {
+            max0 = Math.max(max0, c.getByte0());
+            if ( c.length()==2 ) max1 = Math.max(max1, c.getByte1());
+        }
+        SINGLE = new CharStringCommand[max0 + 1];
+        DOUBLE = new CharStringCommand[max1 + 1];
+        Arrays.fill(SINGLE, UNKNOWN);
+        Arrays.fill(DOUBLE, UNKNOWN);
+        for ( CharStringCommand c : all.values() ) {
+            if ( c.length()==1 ) SINGLE[c.getByte0()] = c; else DOUBLE[c.getByte1()] = c;
+        }
+    }
+    
+    private final Type1KeyWord type1;
+    private final Type2KeyWord type2;
 
     /**
-     * Constructor with one value.
+     * Returns the command for the given single byte command code.
      * 
      * @param b0 value
      */
-    public static CharStringCommand get(int b0)
+    public static CharStringCommand getInstance(int b0)
     {
-        return get(new int[] { b0 });
+        return b0<0 || b0>=SINGLE.length ? UNKNOWN : SINGLE[b0]; 
     }
 
     
     /**
-     * Constructor with two values.
+     * Returns the command for the given double byte command code.
      * 
      * @param b0 value1
      * @param b1 value2
      */
-    public static CharStringCommand get(int b0, int b1)
+    public static CharStringCommand getInstance(int b0, int b1)
     {
-        return get(new int[] { b0, b1 });
+        return b0!=12 || b1<0 || b1>=DOUBLE.length ? UNKNOWN : DOUBLE[b1]; 
     }
 
     
     /**
-     * Constructor with an array as values.
-     * 
-     * @param values array of values
+     * @param b0 value1
+     * @param b1 value2
+     * @param values additional values
      */
-    public static CharStringCommand get(int[] values)
+    private CharStringCommand(Type1KeyWord type1, Type2KeyWord type2)
     {
-        CharStringCommand cached = INTERN.get(new IntArrayKey(values));
-        return cached==null ? new CharStringCommand(values) : cached;
+        this.type1 = type1;
+        this.type2 = type2;
+    }
+    
+
+    public boolean isType1()
+    {
+        return type1!=null;
+    }
+    
+    
+    public boolean isType2()
+    {
+        return type2!=null;
+    }
+    
+    
+    public Type1KeyWord getType1KeyWord()
+    {
+        return type1;
+    }
+    
+    
+    public Type2KeyWord getType2KeyWord()
+    {
+        return type2;
     }
 
     
-    /**
-     * Constructor with an array as values.
-     * 
-     * @param values array of values
-     */
-    private CharStringCommand(int[] values)
+    public int getByte0()
     {
-        this.keyValues = values;
+        return getKey().getByte0();
     }
     
     
-    public int getValue(int index) throws ArrayIndexOutOfBoundsException
+    public int getByte1() throws ArrayIndexOutOfBoundsException
     {
-        return keyValues[index];
+        return getKey().getByte1();
+    }
+    
+
+    public int length()
+    {
+        return getKey().length();
     }
     
     
     @Override
     public String toString()
     {
-        String str = TYPE2_VOCABULARY.get(this);
-        if (str == null)
-        {
-            str = TYPE1_VOCABULARY.get(this);
-        }
-        if (str == null)
-        {
-            return Arrays.toString(keyValues) + '|';
-        }
-        return str + '|';
+        return getKey().toString();
     }
 
 
     @Override
     public int hashCode()
     {
-        if (keyValues[0] == 12 && keyValues.length > 1)
-        {
-            return keyValues[0] ^ keyValues[1];
-        }
-        return keyValues[0];        
+        //return super.hashCode();
+        return getKey().hashCode();
     }
 
 
     @Override
     public boolean equals(Object object)
     {
-        if (object instanceof CharStringCommand)
-        {
-            CharStringCommand that = (CharStringCommand) object;
-            if (keyValues[0] == 12 && that.keyValues[0] == 12)
-            {
-                if (keyValues.length > 1 && that.keyValues.length > 1)
-                {
-                    return keyValues[1] == that.keyValues[1];
-                }
-                return keyValues.length == that.keyValues.length;
+        return super.equals(object);
+        
+    }
+    
+    
+    private Key getKey()
+    {
+        return type2==null ? type1==null ? Key.UNKNOWN : type1 : type2;
+    }
+
+    
+    private static int code(Key c)
+    {
+        return c.length()==1 ? c.getByte0() : (c.getByte1() + 1 << 8 | c.getByte0());
+    }
+    
+    
+    /**
+     * Type1 vocabulary.
+     */
+    public enum Type1KeyWord implements Key
+    {
+        HSTEM          (1),
+        VSTEM          (3),
+        VMOVETO        (4),
+        RLINETO        (5),
+        HLINETO        (6),
+        VLINETO        (7),
+        RRCURVETO      (8),
+        CLOSEPATH      (9),
+        CALLSUBR       (10),
+        RETURN         (11),
+        ESCAPE         (12),
+        DOTSECTION     (12, 0),
+        VSTEM3         (12, 1),
+        HSTEM3         (12, 2),
+        SEAC           (12, 6),
+        SBW            (12, 7),
+        DIV            (12, 12),
+        CALLOTHERSUBR  (12, 16),
+        POP            (12, 17),
+        SETCURRENTPOINT(12, 33),
+        HSBW           (13),
+        ENDCHAR        (14),
+        RMOVETO        (21),
+        HMOVETO        (22),
+        VHCURVETO      (30),
+        HVCURVETO      (31);
+        
+        final int b0, b1;
+        
+        private Type1KeyWord(int b0) {
+            this(b0, -1);
+        }
+        
+        private Type1KeyWord(int b0, int b1) {
+            this.b0 = b0;
+            this.b1 = b1;
+        }
+        
+        @Override
+        public int getByte0() {
+            return b0;
+        }
+        
+        @Override
+        public int getByte1() throws IndexOutOfBoundsException {
+            if ( b1==-1 ) throw new ArrayIndexOutOfBoundsException("1");
+            return b1;
+        }
+        
+        @Override
+        public int length() {
+            return b1==-1 ? 1 : 2;
+        }
+        
+        @Override
+        public String toString() {
+            return super.toString().toLowerCase(Locale.ROOT);
+        }
+    }
+        
+
+    /**
+     * Type2 vocabulary.
+     */
+    public enum Type2KeyWord implements Key
+    {
+        HSTEM          (1),
+        VSTEM          (3),
+        VMOVETO        (4),
+        RLINETO        (5),
+        HLINETO        (6),
+        VLINETO        (7),
+        RRCURVETO      (8),
+        CALLSUBR       (10),
+        RETURN         (11),
+        ESCAPE         (12),
+        AND            (12, 3),
+        OR             (12, 4),
+        NOT            (12, 5),
+        ABS            (12, 9),
+        ADD            (12, 10),
+        SUB            (12, 11),
+        DIV            (12, 12),
+        NEG            (12, 14),
+        EQ             (12, 15),
+        DROP           (12, 18),
+        PUT            (12, 20),
+        GET            (12, 21),
+        IFELSE         (12, 22),
+        RANDOM         (12, 23),
+        MUL            (12, 24),
+        SQRT           (12, 26),
+        DUP            (12, 27),
+        EXCH           (12, 28),
+        INDEX          (12, 29),
+        ROLL           (12, 30),
+        HFLEX          (12, 34),
+        FLEX           (12, 35),
+        HFLEX1         (12, 36),
+        FLEX1          (12, 37),
+        ENDCHAR        (14),
+        HSTEMHM        (18),
+        HINTMASK       (19),
+        CNTRMASK       (20),
+        RMOVETO        (21),
+        HMOVETO        (22),
+        VSTEMHM        (23),
+        RCURVELINE     (24),
+        RLINECURVE     (25),
+        VVCURVETO      (26),
+        HHCURVETO      (27),
+        SHORTINT       (28),
+        CALLGSUBR      (29),
+        VHCURVETO      (30),
+        HVCURVETO      (31);
+        
+        final int b0, b1;
+        
+        private Type2KeyWord(int b0) {
+            this(b0, -1);
+        }
+        
+        private Type2KeyWord(int b0, int b1) {
+            this.b0 = b0;
+            this.b1 = b1;
+        }
+        
+        @Override
+        public int getByte0() {
+            return b0;
+        }
+        
+        @Override
+        public int getByte1() throws IndexOutOfBoundsException {
+            if ( b1==-1 ) throw new ArrayIndexOutOfBoundsException("1");
+            return b1;
+        }
+        
+        @Override
+        public int length() {
+            return b1==-1 ? 1 : 2;
+        }
+        
+        @Override
+        public String toString() {
+            return super.toString().toLowerCase(Locale.ROOT);
+        }
+        
+    }
+
+    
+    private interface Key
+    {
+        public static final Key UNKNOWN = new Key() {
+            @Override
+            public int length() {
+                return 2;
             }
-            return keyValues[0] == that.keyValues[0];
+            
+            @Override
+            public int getByte1() {
+                return 99;
+            }
+            
+            @Override
+            public int getByte0() {
+                return 99;
+            }
+            
+            @Override
+            public String toString() {
+                return "unknown command";
+            }
+        };
+        
+        int getByte0();
+        
+        int getByte1() throws ArrayIndexOutOfBoundsException;
+        
+        int length();
+        
+        default CharStringCommand getInstance() {
+            return length()==1 ? CharStringCommand.getInstance(getByte0()) : CharStringCommand.getInstance(getByte0(), getByte1());
         }
-        return false;        
-    }
-    
-    
-    private CharStringCommand intern()
-    {
-        IntArrayKey key = new IntArrayKey(keyValues);
-        CharStringCommand cached = INTERN.putIfAbsent(key, this);
-        return cached==null ? this : cached;
-    }
-    
-
-    /**
-     * A static class to hold one or more int values as key for a hashmap. 
-     */
-    private static class IntArrayKey
-    {
-        private final int[] values;
-        private final int hashcode;
-
-        public IntArrayKey(int[] values)
-        {
-            this.values = values;
-            this.hashcode = Arrays.hashCode(values);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return hashcode;
-        }
-
-        @Override
-        public boolean equals(Object object)
-        {
-            return object instanceof IntArrayKey && Arrays.equals(values, ((IntArrayKey)object).values);
-        }
-    }
-
-    /**
-     * A map with the Type1 vocabulary.
-     */
-    public static final Map<CharStringCommand, String> TYPE1_VOCABULARY;
-
-    static
-    {
-        Map<CharStringCommand, String> map = new LinkedHashMap<>(26);
-        map.put(get(1).intern(), "hstem");
-        map.put(get(3).intern(), "vstem");
-        map.put(get(4).intern(), "vmoveto");
-        map.put(get(5).intern(), "rlineto");
-        map.put(get(6).intern(), "hlineto");
-        map.put(get(7).intern(), "vlineto");
-        map.put(get(8).intern(), "rrcurveto");
-        map.put(get(9).intern(), "closepath");
-        map.put(get(10).intern(), "callsubr");
-        map.put(get(11).intern(), "return");
-        map.put(get(12).intern(), "escape");
-        map.put(get(12, 0).intern(), "dotsection");
-        map.put(get(12, 1).intern(), "vstem3");
-        map.put(get(12, 2).intern(), "hstem3");
-        map.put(get(12, 6).intern(), "seac");
-        map.put(get(12, 7).intern(), "sbw");
-        map.put(get(12, 12).intern(), "div");
-        map.put(get(12, 16).intern(), "callothersubr");
-        map.put(get(12, 17).intern(), "pop");
-        map.put(get(12, 33).intern(), "setcurrentpoint");
-        map.put(get(13).intern(), "hsbw");
-        map.put(get(14).intern(), "endchar");
-        map.put(get(21).intern(), "rmoveto");
-        map.put(get(22).intern(), "hmoveto");
-        map.put(get(30).intern(), "vhcurveto");
-        map.put(get(31).intern(), "hvcurveto");
-
-        TYPE1_VOCABULARY = Collections.unmodifiableMap(map);
-    }
-
-    /**
-     * A map with the Type2 vocabulary.
-     */
-    public static final Map<CharStringCommand, String> TYPE2_VOCABULARY;
-
-    static
-    {
-        Map<CharStringCommand, String> map = new LinkedHashMap<>(48);
-        map.put(get(1).intern(), "hstem");
-        map.put(get(3).intern(), "vstem");
-        map.put(get(4).intern(), "vmoveto");
-        map.put(get(5).intern(), "rlineto");
-        map.put(get(6).intern(), "hlineto");
-        map.put(get(7).intern(), "vlineto");
-        map.put(get(8).intern(), "rrcurveto");
-        map.put(get(10).intern(), "callsubr");
-        map.put(get(11).intern(), "return");
-        map.put(get(12).intern(), "escape");
-        map.put(get(12, 3).intern(), "and");
-        map.put(get(12, 4).intern(), "or");
-        map.put(get(12, 5).intern(), "not");
-        map.put(get(12, 9).intern(), "abs");
-        map.put(get(12, 10).intern(), "add");
-        map.put(get(12, 11).intern(), "sub");
-        map.put(get(12, 12).intern(), "div");
-        map.put(get(12, 14).intern(), "neg");
-        map.put(get(12, 15).intern(), "eq");
-        map.put(get(12, 18).intern(), "drop");
-        map.put(get(12, 20).intern(), "put");
-        map.put(get(12, 21).intern(), "get");
-        map.put(get(12, 22).intern(), "ifelse");
-        map.put(get(12, 23).intern(), "random");
-        map.put(get(12, 24).intern(), "mul");
-        map.put(get(12, 26).intern(), "sqrt");
-        map.put(get(12, 27).intern(), "dup");
-        map.put(get(12, 28).intern(), "exch");
-        map.put(get(12, 29).intern(), "index");
-        map.put(get(12, 30).intern(), "roll");
-        map.put(get(12, 34).intern(), "hflex");
-        map.put(get(12, 35).intern(), "flex");
-        map.put(get(12, 36).intern(), "hflex1");
-        map.put(get(12, 37).intern(), "flex1");
-        map.put(get(14).intern(), "endchar");
-        map.put(get(18).intern(), "hstemhm");
-        map.put(get(19).intern(), "hintmask");
-        map.put(get(20).intern(), "cntrmask");
-        map.put(get(21).intern(), "rmoveto");
-        map.put(get(22).intern(), "hmoveto");
-        map.put(get(23).intern(), "vstemhm");
-        map.put(get(24).intern(), "rcurveline");
-        map.put(get(25).intern(), "rlinecurve");
-        map.put(get(26).intern(), "vvcurveto");
-        map.put(get(27).intern(), "hhcurveto");
-        map.put(get(28).intern(), "shortint");
-        map.put(get(29).intern(), "callgsubr");
-        map.put(get(30).intern(), "vhcurveto");
-        map.put(get(31).intern(), "hvcurveto");
-
-        TYPE2_VOCABULARY = Collections.unmodifiableMap(map);
     }
 }
