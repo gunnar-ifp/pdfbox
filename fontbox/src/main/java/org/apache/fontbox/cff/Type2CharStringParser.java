@@ -236,10 +236,9 @@ public class Type2CharStringParser
         }
         else if (b0 == 255)
         {
-            short value = input.readShort();
-            // The lower bytes are representing the digits after the decimal point
-            double fraction = input.readUnsignedShort() / 65535d;
-            return value + fraction;
+            // 32bit signed integer as Fixed 16.16
+            //return Math.scalb((double)input.readInt(), -16);
+            return input.readInt() * (1d / 65536);
         } 
         else
         {
