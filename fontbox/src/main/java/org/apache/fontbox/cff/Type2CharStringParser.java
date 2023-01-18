@@ -182,11 +182,11 @@ public class Type2CharStringParser
 
         if (b0 == 1 || b0 == 18)
         {
-            hstemCount += peekNumbers().size() / 2;
+            hstemCount += countNumbers() / 2;
         } 
         else if (b0 == 3 || b0 == 19 || b0 == 20 || b0 == 23)
         {
-            vstemCount += peekNumbers().size() / 2;
+            vstemCount += countNumbers() / 2;
         } // End if
 
         if (b0 == 12)
@@ -250,19 +250,14 @@ public class Type2CharStringParser
         return length;
     }
 
-    private List<Number> peekNumbers()
+    private int countNumbers()
     {
-        List<Number> numbers = new ArrayList<Number>();
+        int count = 0;
         for (int i = sequence.size() - 1; i > -1; i--)
         {
-            Object object = sequence.get(i);
-
-            if (!(object instanceof Number))
-            {
-                return numbers;
-            }
-            numbers.add(0, (Number) object);
+            if (!(sequence.get(i) instanceof Number)) break;
+            count++;
         }
-        return numbers;
+        return count;
     }
 }
