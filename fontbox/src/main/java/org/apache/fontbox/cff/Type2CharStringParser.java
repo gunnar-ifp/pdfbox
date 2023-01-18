@@ -30,11 +30,13 @@ public class Type2CharStringParser
     private int hstemCount = 0;
     private int vstemCount = 0;
     private List<Object> sequence = null;
+
     @SuppressWarnings("unused")
     private final String fontName;
     @SuppressWarnings("unused")
     private final String glyphName;
 
+    
     /**
      * Constructs a new Type1CharStringParser object for a Type 1-equivalent font.
      *
@@ -70,17 +72,17 @@ public class Type2CharStringParser
      */
     public List<Object> parse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex) throws IOException
     {
-        return parse(bytes, globalSubrIndex, localSubrIndex, true);
+        final ArrayList<Object> result = new ArrayList<Object>();
+        hstemCount = 0;
+        vstemCount = 0;
+        sequence = result;
+        doParse(bytes, globalSubrIndex, localSubrIndex);
+        result.trimToSize();
+        return result;
     }
     
-    private List<Object> parse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex, boolean init) throws IOException
+    private void doParse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex) throws IOException
     {
-        if (init) 
-        {
-            hstemCount = 0;
-            vstemCount = 0;
-            sequence = new ArrayList<Object>();
-        }
         DataInput input = new DataInput(bytes);
         boolean localSubroutineIndexProvided = localSubrIndex != null && localSubrIndex.length > 0;
         boolean globalSubroutineIndexProvided = globalSubrIndex != null && globalSubrIndex.length > 0;
@@ -111,7 +113,7 @@ public class Type2CharStringParser
                 if (subrNumber < localSubrIndex.length)
                 {
                     byte[] subrBytes = localSubrIndex[subrNumber];
-                    parse(subrBytes, globalSubrIndex, localSubrIndex, false);
+                    doParse(subrBytes, globalSubrIndex, localSubrIndex);
                     Object lastItem=sequence.get(sequence.size()-1);
                     if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0() == 11)
                     {
@@ -144,7 +146,7 @@ public class Type2CharStringParser
                 if (subrNumber < globalSubrIndex.length)
                 {
                     byte[] subrBytes = globalSubrIndex[subrNumber];
-                    parse(subrBytes, globalSubrIndex, localSubrIndex, false);
+                    doParse(subrBytes, globalSubrIndex, localSubrIndex);
                     Object lastItem=sequence.get(sequence.size()-1);
                     if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0()==11) 
                     {
@@ -174,7 +176,6 @@ public class Type2CharStringParser
                 throw new IllegalArgumentException();
             }
         }
-        return sequence;
     }
 
     private CharStringCommand readCommand(int b0, DataInput input) throws IOException
@@ -260,4 +261,5 @@ public class Type2CharStringParser
         }
         return count;
     }
+    
 }
