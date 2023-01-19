@@ -30,11 +30,13 @@ public class Type2CharStringParser
     private int hstemCount = 0;
     private int vstemCount = 0;
     private List<Object> sequence = null;
+
     @SuppressWarnings("unused")
     private final String fontName;
     @SuppressWarnings("unused")
     private final String glyphName;
 
+    
     /**
      * Constructs a new Type1CharStringParser object for a Type 1-equivalent font.
      *
@@ -70,17 +72,17 @@ public class Type2CharStringParser
      */
     public List<Object> parse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex) throws IOException
     {
-        return parse(bytes, globalSubrIndex, localSubrIndex, true);
+        final ArrayList<Object> result = new ArrayList<Object>();
+        hstemCount = 0;
+        vstemCount = 0;
+        sequence = result;
+        doParse(bytes, globalSubrIndex, localSubrIndex);
+        result.trimToSize();
+        return result;
     }
     
-    private List<Object> parse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex, boolean init) throws IOException
+    private void doParse(byte[] bytes, byte[][] globalSubrIndex, byte[][] localSubrIndex) throws IOException
     {
-        if (init) 
-        {
-            hstemCount = 0;
-            vstemCount = 0;
-            sequence = new ArrayList<Object>();
-        }
         DataInput input = new DataInput(bytes);
         boolean localSubroutineIndexProvided = localSubrIndex != null && localSubrIndex.length > 0;
         boolean globalSubroutineIndexProvided = globalSubrIndex != null && globalSubrIndex.length > 0;
@@ -111,9 +113,9 @@ public class Type2CharStringParser
                 if (subrNumber < localSubrIndex.length)
                 {
                     byte[] subrBytes = localSubrIndex[subrNumber];
-                    parse(subrBytes, globalSubrIndex, localSubrIndex, false);
+                    doParse(subrBytes, globalSubrIndex, localSubrIndex);
                     Object lastItem=sequence.get(sequence.size()-1);
-                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getKey().getValue()[0] == 11)
+                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0() == 11)
                     {
                         sequence.remove(sequence.size()-1); // remove "return" command
                     }
@@ -144,9 +146,9 @@ public class Type2CharStringParser
                 if (subrNumber < globalSubrIndex.length)
                 {
                     byte[] subrBytes = globalSubrIndex[subrNumber];
-                    parse(subrBytes, globalSubrIndex, localSubrIndex, false);
+                    doParse(subrBytes, globalSubrIndex, localSubrIndex);
                     Object lastItem=sequence.get(sequence.size()-1);
-                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getKey().getValue()[0]==11) 
+                    if (lastItem instanceof CharStringCommand && ((CharStringCommand)lastItem).getByte0()==11) 
                     {
                         sequence.remove(sequence.size()-1); // remove "return" command
                     }
@@ -174,7 +176,6 @@ public class Type2CharStringParser
                 throw new IllegalArgumentException();
             }
         }
-        return sequence;
     }
 
     private CharStringCommand readCommand(int b0, DataInput input) throws IOException
@@ -182,33 +183,25 @@ public class Type2CharStringParser
 
         if (b0 == 1 || b0 == 18)
         {
-            hstemCount += peekNumbers().size() / 2;
+            hstemCount += countNumbers() / 2;
         } 
         else if (b0 == 3 || b0 == 19 || b0 == 20 || b0 == 23)
         {
-            vstemCount += peekNumbers().size() / 2;
+            vstemCount += countNumbers() / 2;
         } // End if
 
         if (b0 == 12)
         {
             int b1 = input.readUnsignedByte();
 
-            return new CharStringCommand(b0, b1);
+            return CharStringCommand.getInstance(b0, b1);
         } 
         else if (b0 == 19 || b0 == 20)
         {
-            int[] value = new int[1 + getMaskLength()];
-            value[0] = b0;
-
-            for (int i = 1; i < value.length; i++)
-            {
-                value[i] = input.readUnsignedByte();
-            }
-
-            return new CharStringCommand(value);
+            for (int i = getMaskLength(); i > 0; i--) input.readUnsignedByte();
         }
 
-        return new CharStringCommand(b0);
+        return CharStringCommand.getInstance(b0);
     }
 
     private Number readNumber(int b0, DataInput input) throws IOException
@@ -257,19 +250,15 @@ public class Type2CharStringParser
         return length;
     }
 
-    private List<Number> peekNumbers()
+    private int countNumbers()
     {
-        List<Number> numbers = new ArrayList<Number>();
+        int count = 0;
         for (int i = sequence.size() - 1; i > -1; i--)
         {
-            Object object = sequence.get(i);
-
-            if (!(object instanceof Number))
-            {
-                return numbers;
-            }
-            numbers.add(0, (Number) object);
+            if (!(sequence.get(i) instanceof Number)) break;
+            count++;
         }
-        return numbers;
+        return count;
     }
+    
 }
