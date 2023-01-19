@@ -140,7 +140,7 @@ public class PDDocumentCatalog implements COSObjectable
 
         if (cachedAcroForm == null)
         {
-            COSDictionary dict = (COSDictionary)root.getDictionaryObject(COSName.ACRO_FORM);
+            COSDictionary dict = root.getCOSDictionary(COSName.ACRO_FORM);
             cachedAcroForm = dict == null ? null : new PDAcroForm(document, dict);
         }
         return cachedAcroForm;
@@ -510,14 +510,18 @@ public class PDDocumentCatalog implements COSObjectable
     public PageLayout getPageLayout()
     {
         String mode = root.getNameAsString(COSName.PAGE_LAYOUT);
-        if (mode != null)
+        if (mode != null && !mode.isEmpty())
         {
-            return PageLayout.fromString(mode);
+            try
+            {
+                return PageLayout.fromString(mode);
+            }
+            catch (IllegalArgumentException e)
+            {
+                LOG.warn("Invalid PageLayout used '" + mode + "' - returning PageLayout.SINGLE_PAGE", e);
+            }
         }
-        else
-        {
-            return PageLayout.SINGLE_PAGE;
-        }
+        return PageLayout.SINGLE_PAGE;
     }
 
     /**

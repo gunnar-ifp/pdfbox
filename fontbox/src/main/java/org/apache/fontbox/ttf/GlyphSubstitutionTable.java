@@ -78,6 +78,8 @@ public class GlyphSubstitutionTable extends TTFTable
         scriptList = readScriptList(data, start + scriptListOffset);
         featureList = readFeatureList(data, start + featureListOffset);
         lookupList = readLookupList(data, start + lookupListOffset);
+
+        initialized = true;
     }
 
     LinkedHashMap<String, ScriptTable> readScriptList(TTFDataStream data, long offset) throws IOException
@@ -240,10 +242,10 @@ public class GlyphSubstitutionTable extends TTFTable
         lookupTable.lookupType = data.readUnsignedShort();
         lookupTable.lookupFlag = data.readUnsignedShort();
         int subTableCount = data.readUnsignedShort();
-        int[] subTableOffets = new int[subTableCount];
+        int[] subTableOffsets = new int[subTableCount];
         for (int i = 0; i < subTableCount; i++)
         {
-            subTableOffets[i] = data.readUnsignedShort();
+            subTableOffsets[i] = data.readUnsignedShort();
         }
         if ((lookupTable.lookupFlag & 0x0010) != 0)
         {
@@ -255,7 +257,7 @@ public class GlyphSubstitutionTable extends TTFTable
         case 1: // Single
             for (int i = 0; i < subTableCount; i++)
             {
-                lookupTable.subTables[i] = readLookupSubTable(data, offset + subTableOffets[i]);
+                lookupTable.subTables[i] = readLookupSubTable(data, offset + subTableOffsets[i]);
             }
             break;
         default:

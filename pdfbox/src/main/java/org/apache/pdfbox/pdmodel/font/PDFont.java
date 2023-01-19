@@ -156,9 +156,13 @@ public abstract class PDFont implements COSObjectable, PDFontLike
                         || COSName.IDENTITY_H.equals(encoding) //
                         || COSName.IDENTITY_V.equals(encoding))
                 {
-                    // assume that if encoding is identity, then the reverse is also true
-                    cmap = CMapManager.getPredefinedCMap(COSName.IDENTITY_H.getName());
-                    LOG.warn("Using predefined identity CMap instead");
+                    COSDictionary encodingDict = dict.getCOSDictionary(COSName.ENCODING);
+                    if (encodingDict == null || !encodingDict.containsKey(COSName.DIFFERENCES))
+                    {
+                        // assume that if encoding is identity, then the reverse is also true
+                        cmap = CMapManager.getPredefinedCMap(COSName.IDENTITY_H.getName());
+                        LOG.warn("Using predefined identity CMap instead");
+                    }
                 }
             }
         }
@@ -535,10 +539,9 @@ public abstract class PDFont implements COSObjectable, PDFontLike
     {
         if (fontWidthOfSpace == -1f)
         {
-            COSBase toUnicode = dict.getDictionaryObject(COSName.TO_UNICODE);
             try
             {
-                if (toUnicode != null && toUnicodeCMap != null)
+                if (toUnicodeCMap != null && dict.containsKey(COSName.TO_UNICODE))
                 {
                     int spaceMapping = toUnicodeCMap.getSpaceMapping();
                     if (spaceMapping > -1)
@@ -555,11 +558,12 @@ public abstract class PDFont implements COSObjectable, PDFontLike
                 if (fontWidthOfSpace <= 0)
                 {
                     fontWidthOfSpace = getWidthFromFont(32);
-                }
-                // use the average font width as fall back
-                if (fontWidthOfSpace <= 0)
-                {
-                    fontWidthOfSpace = getAverageFontWidth();
+
+                    // use the average font width as fall back
+                    if (fontWidthOfSpace <= 0)
+                    {
+                        fontWidthOfSpace = getAverageFontWidth();
+                    }
                 }
             }
             catch (Exception e)
