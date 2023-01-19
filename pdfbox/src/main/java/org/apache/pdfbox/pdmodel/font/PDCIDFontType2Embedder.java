@@ -21,12 +21,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -105,7 +103,7 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
             throws IOException
     {
         // build CID2GIDMap, because the content stream has been written with the old GIDs
-        Map<Integer, Integer> cidToGid = new HashMap<Integer, Integer>(gidToCid.size());
+        TreeMap<Integer, Integer> cidToGid = new TreeMap<Integer, Integer>();
         for (Map.Entry<Integer, Integer> entry : gidToCid.entrySet())
         {
             int newGID = entry.getKey();
@@ -236,25 +234,24 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
         cidFont.setName(COSName.BASE_FONT, newName);
     }
 
-    private void buildCIDToGIDMap(Map<Integer, Integer> cidToGid) throws IOException
+    private void buildCIDToGIDMap(TreeMap<Integer, Integer> cidToGid) throws IOException
     {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        int cidMax = Collections.max(cidToGid.keySet());
+        int cidMax = cidToGid.lastKey();
+        byte[] buffer = new byte[cidMax * 2 + 2];
+        int bi = 0;
         for (int i = 0; i <= cidMax; i++)
         {
-            int gid;
-            if (cidToGid.containsKey(i))
+            Integer gid = cidToGid.get(i);
+            if (gid != null)
             {
-                gid = cidToGid.get(i);
+                buffer[bi]   = (byte) (gid >> 8 & 0xff);
+                buffer[bi+1] = (byte) (gid & 0xff);
             }
-            else
-            {
-                gid = 0;
-            }
-            out.write(new byte[] { (byte)(gid >> 8 & 0xff), (byte)(gid & 0xff) });
+            // else keep 0 initialization
+            bi += 2;
         }
 
-        InputStream input = new ByteArrayInputStream(out.toByteArray());
+        InputStream input = new ByteArrayInputStream(buffer);
         PDStream stream = new PDStream(document, input, COSName.FLATE_DECODE);
 
         cidFont.setItem(COSName.CID_TO_GID_MAP, stream);
@@ -264,9 +261,9 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
      * Builds the CIDSet entry, required by PDF/A. This lists all CIDs in the font, including those
      * that don't have a GID.
      */
-    private void buildCIDSet(Map<Integer, Integer> cidToGid) throws IOException
+    private void buildCIDSet(TreeMap<Integer, Integer> cidToGid) throws IOException
     {
-        int cidMax = Collections.max(cidToGid.keySet());
+        int cidMax = cidToGid.lastKey();
         byte[] bytes = new byte[cidMax / 8 + 1];
         for (int cid = 0; cid <= cidMax; cid++)
         {
@@ -283,7 +280,7 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
     /**
      * Builds widths with a custom CIDToGIDMap (for embedding font subset).
      */
-    private void buildWidths(Map<Integer, Integer> cidToGid) throws IOException
+    private void buildWidths(TreeMap<Integer, Integer> cidToGid) throws IOException
     {
         float scaling = 1000f / ttf.getHeader().getUnitsPerEm();
 
@@ -291,7 +288,7 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
         COSArray ws = new COSArray();
         int prev = Integer.MIN_VALUE;
         // Use a sorted list to get an optimal width array  
-        Set<Integer> keys = new TreeSet<Integer>(cidToGid.keySet());
+        Set<Integer> keys = cidToGid.keySet();
         HorizontalMetricsTable horizontalMetricsTable = ttf.getHorizontalMetrics();
         for (int cid : keys)
         {
@@ -341,7 +338,7 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
     /**
      * Builds vertical metrics with a custom CIDToGIDMap (for embedding font subset).
      */
-    private void buildVerticalMetrics(Map<Integer, Integer> cidToGid) throws IOException
+    private void buildVerticalMetrics(TreeMap<Integer, Integer> cidToGid) throws IOException
     {
         // The "vhea" and "vmtx" tables that specify vertical metrics shall never be used by a conforming
         // reader. The only way to specify vertical metrics in PDF shall be by means of the DW2 and W2
@@ -366,7 +363,7 @@ final class PDCIDFontType2Embedder extends TrueTypeEmbedder
         COSArray w2 = new COSArray();
         int prev = Integer.MIN_VALUE;
         // Use a sorted list to get an optimal width array
-        Set<Integer> keys = new TreeSet<Integer>(cidToGid.keySet());
+        Set<Integer> keys = cidToGid.keySet();
         for (int cid : keys)
         {
             // Unlike buildWidths, we look up with cid (not gid) here because this is

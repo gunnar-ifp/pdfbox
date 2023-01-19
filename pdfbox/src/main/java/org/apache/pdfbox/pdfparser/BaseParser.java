@@ -176,7 +176,7 @@ public abstract class BaseParser
         long objNumber = ((COSInteger) value).longValue();
         if (objNumber <= 0)
         {
-            LOG.error("invalid object number value =" + objNumber + " at offset " + numOffset);
+            LOG.warn("invalid object number value =" + objNumber + " at offset " + numOffset);
             return COSNull.NULL;
         }
         int genNumber = ((COSInteger) generationNumber).intValue();
@@ -937,6 +937,7 @@ public abstract class BaseParser
             {
                 LOG.warn("Skipped unexpected dir object = '" + badString + "' at offset "
                         + seqSource.getPosition() + " (start offset: " + startOffset + ")");
+                return COSNull.NULL;
             }
         }
         return null;
@@ -1104,7 +1105,8 @@ public abstract class BaseParser
     {
         if (seqSource.isEOF())
         {
-            throw new IOException( "Error: End-of-File, expected line");
+            throw new IOException( "Error: End-of-File, expected line at offset " +
+                    seqSource.getPosition());
         }
 
         StringBuilder buffer = new StringBuilder( 11 );

@@ -214,7 +214,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
      * @param closeTTF whether to close the ttf parameter after embedding. Must be true when the ttf
      * parameter was created in the load() method, false when the ttf parameter was passed to the
      * load() method.
-     * @param vertical
+     * @param vertical whether to enable vertical substitutions.
      * @throws IOException
      */
     private PDType0Font(PDDocument document, TrueTypeFont ttf, boolean embedSubset,
@@ -412,7 +412,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
     @Override
     public boolean isVertical()
     {
-        return cMap.getWMode() == 1;
+        return cMap != null && cMap.getWMode() == 1;
     }
 
     @Override
@@ -569,6 +569,10 @@ public class PDType0Font extends PDFont implements PDVectorFont
     @Override
     public int readCode(InputStream in) throws IOException
     {
+        if (cMap == null)
+        {
+            throw new IOException("required cmap is null");
+        }
         return cMap.readCode(in);
     }
 

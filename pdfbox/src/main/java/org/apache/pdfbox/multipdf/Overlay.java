@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,8 +66,8 @@ public class Overlay implements Closeable
     private LayoutPage oddPageOverlayPage;
     private LayoutPage evenPageOverlayPage;
 
-    private final Set<PDDocument> openDocuments = new HashSet<PDDocument>();
-    private Map<Integer, LayoutPage> specificPageOverlayPage = new HashMap<Integer, LayoutPage>();
+    private final Set<PDDocument> openDocumentsSet = new HashSet<PDDocument>();
+    private Map<Integer, LayoutPage> specificPageOverlayLayoutPageMap = new HashMap<Integer, LayoutPage>();
 
     private Position position = Position.BACKGROUND;
 
@@ -97,7 +98,7 @@ public class Overlay implements Closeable
     /**
      * This will add overlays to a document.
      *
-     * @param specificPageOverlayFile Optional map of overlay files of which the first page will be
+     * @param specificPageOverlayMap Optional map of overlay files of which the first page will be
      * used for specific pages of the input document. The page numbers are 1-based. The map must be
      * empty (but not null) if no specific mappings are used.
      *
@@ -105,24 +106,26 @@ public class Overlay implements Closeable
      * the input document was passed by {@link #setInputPDF(PDDocument) setInputPDF(PDDocument)}
      * then it is that object that is returned.
      *
-     * @throws IOException if something went wrong
+     * @throws IOException if something went wrong.
+     * @throws IllegalArgumentException if the input document is missing.
      */
-    public PDDocument overlay(Map<Integer, String> specificPageOverlayFile) throws IOException
+    public PDDocument overlay(Map<Integer, String> specificPageOverlayMap) throws IOException
     {
         Map<String, LayoutPage> layouts = new HashMap<String, LayoutPage>();
         String path;
         loadPDFs();
-        for (Map.Entry<Integer, String> e : specificPageOverlayFile.entrySet())
+        for (Map.Entry<Integer, String> e : specificPageOverlayMap.entrySet())
         {
             path = e.getValue();
             LayoutPage layoutPage = layouts.get(path);
             if (layoutPage == null)
             {
                 PDDocument doc = loadPDF(path);
-                layouts.put(path, getLayoutPage(doc));
-                openDocuments.add(doc);
+                layoutPage = getLayoutPage(doc);
+                layouts.put(path, layoutPage);
+                openDocumentsSet.add(doc);
             }
-            specificPageOverlayPage.put(e.getKey(), layoutPage);
+            specificPageOverlayLayoutPageMap.put(e.getKey(), layoutPage);
         }
         processPages(inputPDFDocument);
         return inputPDFDocument;
@@ -132,7 +135,7 @@ public class Overlay implements Closeable
      * This will add overlays documents to a document. If you created the overlay documents with
      * subsetted fonts, you need to save them first so that the subsetting gets done.
      *
-     * @param specificPageOverlayDocuments Optional map of overlay documents for specific pages. The
+     * @param specificPageOverlayDocumentMap Optional map of overlay documents for specific pages. The
      * page numbers are 1-based. The map must be empty (but not null) if no specific mappings are
      * used.
      *
@@ -142,15 +145,15 @@ public class Overlay implements Closeable
      *
      * @throws IOException if something went wrong
      */
-    public PDDocument overlayDocuments(Map<Integer, PDDocument> specificPageOverlayDocuments) throws IOException
+    public PDDocument overlayDocuments(Map<Integer, PDDocument> specificPageOverlayDocumentMap) throws IOException
     {
         loadPDFs();
-        for (Map.Entry<Integer, PDDocument> e : specificPageOverlayDocuments.entrySet())
+        for (Map.Entry<Integer, PDDocument> e : specificPageOverlayDocumentMap.entrySet())
         {
             PDDocument doc = e.getValue();
             if (doc != null)
             {
-                specificPageOverlayPage.put(e.getKey(), getLayoutPage(doc));
+                specificPageOverlayLayoutPageMap.put(e.getKey(), getLayoutPage(doc));
             }
         }
         processPages(inputPDFDocument);
@@ -189,12 +192,12 @@ public class Overlay implements Closeable
         {
             evenPageOverlay.close();
         }
-        for (PDDocument doc : openDocuments)
+        for (PDDocument doc : openDocumentsSet)
         {
             doc.close();
         }
-        openDocuments.clear();
-        specificPageOverlayPage.clear();
+        openDocumentsSet.clear();
+        specificPageOverlayLayoutPageMap.clear();
     }
 
     private void loadPDFs() throws IOException
@@ -203,6 +206,10 @@ public class Overlay implements Closeable
         if (inputFileName != null)
         {
             inputPDFDocument = loadPDF(inputFileName);
+        }
+        if (inputPDFDocument == null)
+        {
+            throw new IllegalArgumentException("No input document");
         }
         // default overlay PDF
         if (defaultOverlayFilename != null)
@@ -256,9 +263,9 @@ public class Overlay implements Closeable
         }
         if (allPagesOverlay != null)
         {
-            specificPageOverlayPage = getLayoutPages(allPagesOverlay);
+            specificPageOverlayLayoutPageMap = getLayoutPages(allPagesOverlay);
             useAllOverlayPages = true;
-            numberOfOverlayPages = specificPageOverlayPage.size();
+            numberOfOverlayPages = specificPageOverlayLayoutPageMap.size();
         }
     }
     
@@ -348,16 +355,17 @@ public class Overlay implements Closeable
     // get the content streams as a list
     private List<COSStream> createContentStreamList(COSBase contents) throws IOException
     {
-        List<COSStream> contentStreams = new ArrayList<COSStream>();
         if (contents == null)
         {
-            return contentStreams;
+            return Collections.emptyList();
         }
-        else if (contents instanceof COSStream)
+        if (contents instanceof COSStream)
         {
-            contentStreams.add((COSStream) contents);
+            return Collections.singletonList((COSStream) contents);
         }
-        else if (contents instanceof COSArray)
+
+        List<COSStream> contentStreams = new ArrayList<COSStream>();
+        if (contents instanceof COSArray)
         {
             for (COSBase item : (COSArray) contents)
             {
@@ -452,9 +460,9 @@ public class Overlay implements Closeable
     private LayoutPage getLayoutPage(int pageNumber, int numberOfPages)
     {
         LayoutPage layoutPage = null;
-        if (!useAllOverlayPages && specificPageOverlayPage.containsKey(pageNumber))
+        if (!useAllOverlayPages && specificPageOverlayLayoutPageMap.containsKey(pageNumber))
         {
-            layoutPage = specificPageOverlayPage.get(pageNumber);
+            layoutPage = specificPageOverlayLayoutPageMap.get(pageNumber);
         }
         else if ((pageNumber == 1) && (firstPageOverlayPage != null))
         {
@@ -479,7 +487,7 @@ public class Overlay implements Closeable
         else if (useAllOverlayPages)
         {
             int usePageNum = (pageNumber -1 ) % numberOfOverlayPages;
-            layoutPage = specificPageOverlayPage.get(usePageNum);
+            layoutPage = specificPageOverlayLayoutPageMap.get(usePageNum);
         }
         return layoutPage;
     }
@@ -533,7 +541,7 @@ public class Overlay implements Closeable
         for (double v : flatmatrix)
         {
             overlayStream.append(float2String((float) v));
-            overlayStream.append(" ");
+            overlayStream.append(' ');
         }
         overlayStream.append(" cm\n");
 

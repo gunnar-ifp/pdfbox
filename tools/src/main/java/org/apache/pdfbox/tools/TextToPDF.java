@@ -18,9 +18,12 @@ package org.apache.pdfbox.tools;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,6 +35,7 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.util.Charsets;
 
 /**
  * This will take a text file and output a pdf with that text.
@@ -110,167 +114,154 @@ public class TextToPDF
      */
     public void createPDFFromText( PDDocument doc, Reader text ) throws IOException
     {
-        try
+        final int margin = 40;
+        float height = font.getBoundingBox().getHeight() / FONTSCALE;
+        PDRectangle actualMediaBox =
+                landscape ? new PDRectangle(mediaBox.getHeight(), mediaBox.getWidth()) : mediaBox;
+
+        //calculate font height and increase by a factor.
+        height = height * fontSize * LINE_HEIGHT_FACTOR;
+        BufferedReader data = new BufferedReader(text);
+        String nextLine;
+        PDPage page = new PDPage(actualMediaBox);
+        PDPageContentStream contentStream = null;
+        float y = -1;
+        float maxStringLength = page.getMediaBox().getWidth() - 2 * margin;
+
+        // There is a special case of creating a PDF document from an empty string.
+        boolean textIsEmpty = true;
+
+        StringBuilder nextLineToDraw = new StringBuilder();
+
+        while ((nextLine = data.readLine()) != null)
         {
+            // The input text is nonEmpty. New pages will be created and added
+            // to the PDF document as they are needed, depending on the length of
+            // the text.
+            textIsEmpty = false;
 
-            final int margin = 40;
-            float height = font.getBoundingBox().getHeight() / FONTSCALE;
-            PDRectangle actualMediaBox =
-                    landscape ? new PDRectangle(mediaBox.getHeight(), mediaBox.getWidth()) : mediaBox;
-
-            //calculate font height and increase by a factor.
-            height = height*fontSize*LINE_HEIGHT_FACTOR;
-            BufferedReader data = new BufferedReader( text );
-            String nextLine;
-            PDPage page = new PDPage(actualMediaBox);
-            PDPageContentStream contentStream = null;
-            float y = -1;
-            float maxStringLength = page.getMediaBox().getWidth() - 2*margin;
-
-            // There is a special case of creating a PDF document from an empty string.
-            boolean textIsEmpty = true;
-
-            StringBuilder nextLineToDraw = new StringBuilder();
-
-            while( (nextLine = data.readLine()) != null )
+            String[] lineWords = nextLine.replaceAll("[\\n\\r]+$", "").split(" ", -1);
+            int lineIndex = 0;
+            while (lineIndex < lineWords.length)
             {
-
-                // The input text is nonEmpty. New pages will be created and added
-                // to the PDF document as they are needed, depending on the length of
-                // the text.
-                textIsEmpty = false;
-
-                String[] lineWords = nextLine.replaceAll("[\\n\\r]+$", "").split(" ", -1);
-                int lineIndex = 0;
-                while( lineIndex < lineWords.length )
+                nextLineToDraw.setLength(0);
+                boolean addSpace = false;
+                float lengthIfUsingNextWord = 0;
+                boolean ff = false;
+                do
                 {
-                    nextLineToDraw.setLength(0);
-                    boolean addSpace = false;
-                    float lengthIfUsingNextWord = 0;
-                    boolean ff = false;
-                    do
+                    String word1, word2 = "";
+                    String word = lineWords[lineIndex];
+                    int indexFF = word.indexOf('\f');
+                    if (indexFF == -1)
                     {
-                        String word1, word2 = "";
-                        String word = lineWords[lineIndex];
-                        int indexFF = word.indexOf('\f');
-                        if (indexFF == -1)
+                        word1 = word;
+                    }
+                    else
+                    {
+                        ff = true;
+                        word1 = word.substring(0, indexFF);
+                        if (indexFF < word.length())
                         {
-                            word1 = word;
+                            word2 = word.substring(indexFF + 1);
+                        }
+                    }
+                    // word1 is the part before ff, word2 after
+                    // both can be empty
+                    // word1 can also be empty without ff, if a line has many spaces
+                    if (word1.length() > 0 || !ff)
+                    {
+                        if (addSpace)
+                        {
+                            nextLineToDraw.append(' ');
                         }
                         else
                         {
-                            ff = true;
-                            word1 = word.substring(0, indexFF);
-                            if (indexFF < word.length())
-                            {
-                                word2 = word.substring(indexFF + 1);
-                            }
+                            addSpace = true;
                         }
-                        // word1 is the part before ff, word2 after
-                        // both can be empty
-                        // word1 can also be empty without ff, if a line has many spaces
-                        if (word1.length() > 0 || !ff)
-                        {
-                            if (addSpace)
-                            {
-                                nextLineToDraw.append(" ");
-                            }
-                            else
-                            {
-                                addSpace = true;
-                            }
-                            nextLineToDraw.append(word1);
-                        }
-                        if (!ff || word2.length() == 0)
-                        {
-                            lineIndex++;
-                        }
-                        else
-                        {
-                            lineWords[lineIndex] = word2;
-                        }
-                        if (ff)
-                        {
-                            break;
-                        }
-                        if( lineIndex < lineWords.length )
-                        {
-                            // need cut off at \f in next word to avoid IllegalArgumentException
-                            String nextWord = lineWords[lineIndex];
-                            indexFF = nextWord.indexOf('\f');
-                            if (indexFF != -1)
-                            {
-                                nextWord = nextWord.substring(0, indexFF);
-                            }
-                            
-                            String lineWithNextWord = nextLineToDraw + " " + nextWord;
-                            lengthIfUsingNextWord =
-                                (font.getStringWidth( lineWithNextWord )/FONTSCALE) * fontSize;
-                        }
+                        nextLineToDraw.append(word1);
                     }
-                    while (lineIndex < lineWords.length && lengthIfUsingNextWord < maxStringLength);
-
-                    if( y < margin )
+                    if (!ff || word2.length() == 0)
                     {
-                        // We have crossed the end-of-page boundary and need to extend the
-                        // document by another page.
-                        page = new PDPage(actualMediaBox);
-                        doc.addPage( page );
-                        if( contentStream != null )
-                        {
-                            contentStream.endText();
-                            contentStream.close();
-                        }
-                        contentStream = new PDPageContentStream(doc, page);
-                        contentStream.setFont( font, fontSize );
-                        contentStream.beginText();
-                        y = page.getMediaBox().getHeight() - margin + height;
-                        contentStream.newLineAtOffset(margin, y);
+                        lineIndex++;
                     }
-
-                    if( contentStream == null )
+                    else
                     {
-                        throw new IOException( "Error:Expected non-null content stream." );
+                        lineWords[lineIndex] = word2;
                     }
-                    contentStream.newLineAtOffset(0, -height);
-                    y -= height;
-                    contentStream.showText(nextLineToDraw.toString());
                     if (ff)
                     {
-                        page = new PDPage(actualMediaBox);
-                        doc.addPage(page);
-                        contentStream.endText();
-                        contentStream.close();
-                        contentStream = new PDPageContentStream(doc, page);
-                        contentStream.setFont(font, fontSize);
-                        contentStream.beginText();
-                        y = page.getMediaBox().getHeight() - margin + height;
-                        contentStream.newLineAtOffset(margin, y);
+                        break;
+                    }
+                    if (lineIndex < lineWords.length)
+                    {
+                        // need cut off at \f in next word to avoid IllegalArgumentException
+                        String nextWord = lineWords[lineIndex];
+                        indexFF = nextWord.indexOf('\f');
+                        if (indexFF != -1)
+                        {
+                            nextWord = nextWord.substring(0, indexFF);
+                        }
+
+                        String lineWithNextWord = nextLineToDraw + " " + nextWord;
+                        lengthIfUsingNextWord
+                                = (font.getStringWidth(lineWithNextWord) / FONTSCALE) * fontSize;
                     }
                 }
-            }
+                while (lineIndex < lineWords.length && lengthIfUsingNextWord < maxStringLength);
 
-            // If the input text was the empty string, then the above while loop will have short-circuited
-            // and we will not have added any PDPages to the document.
-            // So in order to make the resultant PDF document readable by Adobe Reader etc, we'll add an empty page.
-            if (textIsEmpty)
-            {
-                doc.addPage(page);
-            }
+                if (y < margin)
+                {
+                    // We have crossed the end-of-page boundary and need to extend the
+                    // document by another page.
+                    page = new PDPage(actualMediaBox);
+                    doc.addPage(page);
+                    if (contentStream != null)
+                    {
+                        contentStream.endText();
+                        contentStream.close();
+                    }
+                    contentStream = new PDPageContentStream(doc, page);
+                    contentStream.setFont(font, fontSize);
+                    contentStream.beginText();
+                    y = page.getMediaBox().getHeight() - margin + height;
+                    contentStream.newLineAtOffset(margin, y);
+                }
 
-            if( contentStream != null )
-            {
-                contentStream.endText();
-                contentStream.close();
+                if (contentStream == null)
+                {
+                    throw new IOException("Error:Expected non-null content stream.");
+                }
+                contentStream.newLineAtOffset(0, -height);
+                y -= height;
+                contentStream.showText(nextLineToDraw.toString());
+                if (ff)
+                {
+                    page = new PDPage(actualMediaBox);
+                    doc.addPage(page);
+                    contentStream.endText();
+                    contentStream.close();
+                    contentStream = new PDPageContentStream(doc, page);
+                    contentStream.setFont(font, fontSize);
+                    contentStream.beginText();
+                    y = page.getMediaBox().getHeight() - margin + height;
+                    contentStream.newLineAtOffset(margin, y);
+                }
             }
         }
-        catch( IOException io )
+
+        // If the input text was the empty string, then the above while loop will have short-circuited
+        // and we will not have added any PDPages to the document.
+        // So in order to make the resultant PDF document readable by Adobe Reader etc, we'll add an empty page.
+        if (textIsEmpty)
         {
-            if( doc != null )
-            {
-                doc.close();
-            }
-            throw io;
+            doc.addPage(page);
+        }
+
+        if (contentStream != null)
+        {
+            contentStream.endText();
+            contentStream.close();
         }
     }
 
@@ -285,6 +276,8 @@ public class TextToPDF
      */
     public static void main(String[] args) throws IOException
     {
+        Charset charset = Charset.defaultCharset();
+
         // suppress the Dock icon on OS X
         System.setProperty("apple.awt.UIElement", "true");
 
@@ -312,6 +305,11 @@ public class TextToPDF
                         PDFont font = PDType0Font.load( doc, new File( args[i]) );
                         app.setFont( font );
                     }
+                    else if( args[i].equals( "-charset" ))
+                    {
+                        i++;
+                        charset = Charset.forName(args[i]);
+                    }
                     else if( args[i].equals( "-fontSize" ))
                     {
                         i++;
@@ -337,9 +335,31 @@ public class TextToPDF
                     }
                 }
 
-                FileReader fileReader = new FileReader(args[args.length - 1]);
-                app.createPDFFromText(doc, fileReader);
-                fileReader.close();
+                boolean hasUtf8BOM = false;
+                if (charset.equals(Charsets.UTF_8))
+                {
+                    // check for utf8 BOM
+                    // FileInputStream doesn't support mark/reset
+                    InputStream is = new FileInputStream(args[args.length - 1]);
+                    if (is.read() == 0xEF && is.read() == 0xBB && is.read() == 0xBF)
+                    {
+                        hasUtf8BOM = true;
+                    }
+                    is.close();
+                }
+                InputStream is = new FileInputStream(args[args.length - 1]);
+                if (hasUtf8BOM)
+                {
+                    long skipped = is.skip(3);
+                    if (skipped != 3)
+                    {
+                        throw new IOException("Could not skip 3 bytes, size changed?!");
+                    }
+                }
+                Reader reader = new InputStreamReader(is, charset);
+                app.createPDFFromText(doc, reader);
+                reader.close();
+                is.close();
                 doc.save(args[args.length - 2]);
             }
         }
@@ -410,6 +430,7 @@ public class TextToPDF
             message.append("                         ").append(std14String).append("\n");
         }
         message.append("  -ttf <ttf file>      : The TTF font to use.\n");
+        message.append("  -charset <charset>   : default: ").append(Charset.defaultCharset()).append("\n");
         message.append("  -fontSize <fontSize> : default: ").append(DEFAULT_FONT_SIZE).append("\n");
         message.append("  -pageSize <pageSize> : Letter (default)\n");
         message.append("                         Legal\n");
