@@ -52,10 +52,10 @@ public class Type2CharString extends Type1CharString
     {
         super(font, fontName, glyphName);
         this.gid = gid;
-        type2sequence = sequence;
-        defWidthX = defaultWidthX;
-        nominalWidthX = nomWidthX;
-        convertType1ToType2(sequence);
+        this.type2sequence = sequence;
+        this.defWidthX = defaultWidthX;
+        this.nominalWidthX = nomWidthX;
+        convertType2ToType1(sequence);
     }
 
     /**
@@ -78,7 +78,7 @@ public class Type2CharString extends Type1CharString
      * Converts a sequence of Type 2 commands into a sequence of Type 1 commands.
      * @param sequence the Type 2 char string sequence
      */
-    private void convertType1ToType2(List<Object> sequence)
+    private void convertType2ToType1(List<Object> sequence)
     {
         type1Sequence = new ArrayList<Object>();
         pathCount = 0;
