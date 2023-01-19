@@ -51,7 +51,7 @@ public class DomXmpParserLenientTest
             XMPMetadata meta = me.parse(is);
             assertTrue(meta.getDublinCoreSchema().getCreators().size()>0);
             assertEquals("viola", meta.getDublinCoreSchema().getCreators().get(0));
-            assertEquals("In welchen Situationen kann der pdfbox Sie im Unternehmen unterstützen?", meta.getDublinCoreSchema().getTitle());
+            assertEquals("In welchen Situationen kann der pdfbox Sie im Unternehmen unterst\u00FCtzen?", meta.getDublinCoreSchema().getTitle());
         } catch (XmpParsingException e) {
             fail(e.getMessage());
         }
@@ -70,7 +70,7 @@ public class DomXmpParserLenientTest
             XMPMetadata meta = me.parse(is);
             assertTrue(meta.getDublinCoreSchema().getCreators().size()>0);
             assertEquals("viola", meta.getDublinCoreSchema().getCreators().get(0));
-            assertEquals("In welchen Situationen kann der pdfbox Sie im Unternehmen unterstützen?", meta.getDublinCoreSchema().getTitle());
+            assertEquals("In welchen Situationen kann der pdfbox Sie im Unternehmen unterst\u00FCtzen?", meta.getDublinCoreSchema().getTitle());
         } catch (XmpParsingException e) {
             failed = true;
         }
