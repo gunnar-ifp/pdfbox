@@ -20,7 +20,8 @@ IMPORTANT
 This is an experimental fork of the orignal project implementing various improvements,
 mainly faster rendering and less memory consumption, but also add things here and there.
 I cannot guarantee production quality (or am not comfortable sending pull requests upstream),
-so things stay here for now.
+so things stay here for now. Also the source format of PDFBox is particularly strange
+with so many lines being empty due to outdated braces placement which I cannot adhere to.
 Since the 3.0 release is not there yet, development happens in a modified 2.0 branch with java 1.8 compatibility.
 You might also want to use the sped up jbig2 decoder library and maybe jpeg2000 library you will find among my repositories.
 
