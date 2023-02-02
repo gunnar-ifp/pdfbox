@@ -257,7 +257,7 @@ public class Type1CharString
         case SBW:
             if (numbers.size() >= 3)
             {
-                leftSideBearing = new Point2D.Float(numbers.get(0).floatValue(), numbers.get(1).floatValue());
+                leftSideBearing.setLocation(numbers.get(0).floatValue(), numbers.get(1).floatValue());
                 width = numbers.get(2).intValue();
                 current.setLocation(leftSideBearing);
             }
@@ -266,7 +266,7 @@ public class Type1CharString
         case HSBW:
             if (numbers.size() >= 2)
             {
-                leftSideBearing = new Point2D.Float(numbers.get(0).floatValue(), 0);
+                leftSideBearing.setLocation(numbers.get(0).floatValue(), 0);
                 width = numbers.get(1).intValue();
                 current.setLocation(leftSideBearing);
             }
