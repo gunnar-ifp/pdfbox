@@ -16,227 +16,280 @@
  */
 package org.apache.fontbox.cff;
 
+import static org.apache.fontbox.cff.CharStringCommand.ESCAPE;
+import static org.apache.fontbox.cff.CharStringCommand.NUMBER_START;
+import static org.apache.fontbox.cff.CharStringCommand.POP;
+import static org.apache.fontbox.cff.CharStringCommand.TYPE1_CALL_LIMIT;
+import static org.apache.fontbox.cff.CharStringCommand.TYPE1_OPERAND_STACK_LIMIT;
+
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
+import java.util.Objects;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.fontbox.cff.CharStringCommand.Type1KeyWord;
+import org.apache.fontbox.cff.CharStringCommand.Type1Command;
+import org.apache.fontbox.cff.CharStringCommand.Type1CommandConsumer;
+import org.apache.fontbox.cff.CharStringCommand.Type1CommandProvider;
+import org.apache.fontbox.cff.CharStringCommand.Type1Operator;
 
 /**
- * This class represents a converter for a mapping into a Type 1 sequence.
+ * Parses a binary type1 charstring command stream
+ * and sends individual commands to a consumer.
+ * <p>
+ * It also:
+ * <ul>
+ * <li>detects unknown commands,
+ * <li>maintains the stack of numerical operands,
+ * <li>verifies that stack sizes fit commands,
+ * <li>handles "callsubr" subroutine calls,
+ * <li>handles "callothersubr" PS stack and back to charstring stack popping,
+ * <li>handles arithmetic commands.
+ * </ul>
+ * 
+ * Note that certain commands are only sent for debugging purposes,
+ * see {@link Type1Command} for details.
  *
- * @see "Adobe Type 1 Font Format, Adobe Systems (1999)"
+ * @see <a href="https://adobe-type-tools.github.io/font-tech-notes/pdfs/T1_SPEC.pdf">Adobe Type 1 Font Format, Adobe Systems (1999)</a>
  *
  * @author Villu Ruusmann
  * @author John Hewson
+ * @author Gunnar Brand
  */
-public class Type1CharStringParser
+public final class Type1CharStringParser implements Type1CommandProvider
 {
     private static final Log LOG = LogFactory.getLog(Type1CharStringParser.class);
 
-    // 1-byte commands
-    static final int RETURN = 11;
-    static final int CALLSUBR = 10;
 
-    // 2-byte commands
-    static final int TWO_BYTE = 12;
-    static final int CALLOTHERSUBR = 16;
-    static final int POP = 17;
+    private final String fontName, glyphName;
+    private final byte[] bytes;
+    private final byte[][] subrs;
+    private final CharStringOperandStack stack = new CharStringOperandStack(TYPE1_OPERAND_STACK_LIMIT / 4);
+    private final CharStringOperandStack psstack = new CharStringOperandStack();
 
-    private final String fontName;
-    private final String glyphName;
 
     /**
      * Constructs a new Type1CharStringParser object.
      *
      * @param fontName font name
      * @param glyphName glyph name
+     * @param bytes the given mapping as byte array
+     * @param subrs list of local subroutines
      */
-    public Type1CharStringParser(String fontName, String glyphName)
+    public Type1CharStringParser(String fontName, String glyphName, byte[] bytes, byte[][] subrs)
     {
         this.fontName = fontName;
         this.glyphName = glyphName;
+        this.bytes = bytes;
+        this.subrs = subrs;
     }
+
 
     /**
      * The given byte array will be parsed and converted to a Type1 sequence.
      *
-     * @param bytes the given mapping as byte array
-     * @param subrs list of local subroutines
-     * @return the Type1 sequence
      * @throws IOException if an error occurs during reading
      */
-    public List<Object> parse(byte[] bytes, List<byte[]> subrs) throws IOException
+    @Override
+    public void stream(Type1CommandConsumer consumer) throws IOException
     {
-        return parse(bytes, subrs, new ArrayList<Object>());
+        Objects.nonNull(consumer);
+        parse(new DataInput(bytes), consumer, 0);
     }
 
-    private List<Object> parse(byte[] bytes, List<byte[]> subrs, List<Object> sequence) throws IOException
+
+    private void parse(DataInput input, Type1CommandConsumer consumer, int depth) throws IOException
     {
-        DataInput input = new DataInput(bytes);
-        while (input.hasRemaining())
-        {
-            int b0 = input.readUnsignedByte();
-            if (b0 == CALLSUBR)
-            {
-                // callsubr command
-                Object obj = sequence.remove(sequence.size() - 1);
-                if (!(obj instanceof Integer))
-                {
-                    LOG.warn("Parameter " + obj + " for CALLSUBR is ignored, integer expected in glyph '"
-                            + glyphName + "' of font " + fontName);
-                    continue;
-                }
-                Integer operand = (Integer) obj;
+        // TODO: if depth!=0, only allow relative charstring commands
 
-                if (operand >= 0 && operand < subrs.size())
-                {
-                    byte[] subrBytes = subrs.get(operand);
-                    parse(subrBytes, subrs, sequence);
-                    Object lastItem = sequence.get(sequence.size()-1);
-                    if (lastItem instanceof CharStringCommand &&
-                          ((CharStringCommand)lastItem).getByte0() == RETURN)
-                    {
-                        sequence.remove(sequence.size()-1); // remove "return" command
-                    }
+        if ( depth>TYPE1_CALL_LIMIT ) throw new IOException(message("Type1 call limit exceeded"));
+
+        while (input.hasRemaining()) {
+            if ( stack.size()>TYPE1_OPERAND_STACK_LIMIT * 2 ) throw new IOException(message("Type1 stack limit exceeded"));
+
+            final int b0 = input.readUnsignedByte();
+            
+            if ( b0>=NUMBER_START ) {
+                if ( b0 <= 246 ) {
+                    stack.push(b0 - 139);
                 }
-                else
-                {
-                    LOG.warn("CALLSUBR is ignored, operand: " + operand
-                            + ", subrs.size(): " + subrs.size() + " in glyph '"
-                            + glyphName + "' of font " + fontName);
-                    // remove all parameters (there can be more than one)
-                    while (sequence.get(sequence.size() - 1) instanceof Integer)
-                    {
-                        sequence.remove(sequence.size() - 1);
-                    }
+                else if ( b0 <= 250 ) {
+                    int b1 = input.readUnsignedByte();
+                    stack.push((b0 - 247) * 256 + b1 + 108);
                 }
+                else if ( b0 <= 254 ) {
+                    int b1 = input.readUnsignedByte();
+                    stack.push(-(b0 - 251) * 256 - b1 - 108);
+                }
+                else {
+                    stack.push(input.readInt());
+                }
+                continue;
             }
-            else if (b0 == TWO_BYTE && input.peekUnsignedByte(0) == CALLOTHERSUBR)
-            {
-                // callothersubr command (needed in order to expand Subrs)
-                input.readByte();
 
-                Integer othersubrNum = (Integer)sequence.remove(sequence.size()-1);
-                Integer numArgs = (Integer)sequence.remove(sequence.size()-1);
+            final int b1 = b0==ESCAPE ? input.readUnsignedByte() : -1; 
+            final Type1Operator operator = Type1Operator.get(b0, b1);
+            if ( operator==null ) {
+                if ( b0==ESCAPE ) {
+                    LOG.warn(message("Unknown escaped Type1 command 0x12 0x" + Integer.toHexString(b1)));
+                } else {
+                    LOG.warn(message("Unknown Type1 command 0x" + Integer.toHexString(b0)));
+                }
+                stack.clear();
+                continue;
+            }
 
-                // othersubrs 0-3 have their own semantics
-                Deque<Integer> results = new ArrayDeque<Integer>();
-                switch (othersubrNum)
-                {
-                    case 0:
-                        results.push(removeInteger(sequence));
-                        results.push(removeInteger(sequence));
-                        sequence.remove(sequence.size() - 1);
-                        // end flex
-                        sequence.add(0);
-                        sequence.add(CharStringCommand.getInstance(TWO_BYTE, CALLOTHERSUBR));
+//            System.out.println("type1: " + operator);
+            
+            if ( stack.size() < operator.getArgumentCount() ) {
+                LOG.warn(message(operator, "Missing operands, have " + stack.size() + ", need " + operator.getArgumentCount()));
+                if ( !operator.keepStack ) stack.clear();
+                continue;
+            }
+
+            try {
+                switch (operator) {
+                    case DIV:
+                        double divisor  = stack.pop();
+                        double dividend = stack.pop();
+                        stack.push(dividend / divisor);
                         break;
-                    case 1:
-                        // begin flex
-                        sequence.add(1);
-                        sequence.add(CharStringCommand.getInstance(TWO_BYTE, CALLOTHERSUBR));
-                        break;
-                    case 3:
-                        // allows hint replacement
-                        results.push(removeInteger(sequence));
-                        break;
-                    default:
-                        // all remaining othersubrs use this fallback mechanism
-                        for (int i = 0; i < numArgs; i++)
-                        {
-                            results.push(removeInteger(sequence));
+                    
+                    case ENDCHAR:
+                        if ( depth==0 ) {
+                            if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of charstring"));
+                            consumer.apply(Type1Command.ENDCHAR, stack);
+                        } else {
+                            if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of subroutine"));
+                            LOG.warn(message(operator, "Invalid at depth " + depth));
                         }
                         break;
-                }
+                        
+                    case CALLSUBR:
+                        final int subr = stack.popInt();
+                        if ( subr<0 || subr >= subrs.length ) {
+                            LOG.warn(message(operator, "Invalid subr# " + subr));
+                        } else {
+                            parse(new DataInput(subrs[subr]), consumer, depth++);
+                        }
+                        break;
+                        
+                    case RETURN:
+                        if ( depth==0 ) {
+                            if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of charstring"));
+                            LOG.warn(message(operator, "Invalid at depth 0"));
+                        } else {
+                            if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of subroutine"));
+                            return;
+                        }
+                        break;
+                        
+                    case CALLOTHERSUBR:
+                        psstack.clear();
 
-                // pop must follow immediately
-                while (input.peekUnsignedByte(0) == TWO_BYTE && input.peekUnsignedByte(1) == POP)
-                {
-                    input.readByte(); // B0_POP
-                    input.readByte(); // B1_POP
-                    sequence.add(results.pop());
-                }
+                        // callothersubr command (needed in order to expand Subrs)
+                        final int othersubrNum = stack.popInt();
+                        final int numArgs      = stack.popInt();
+                        
+                        if ( stack.size()<numArgs ) {
+                            LOG.warn(message(operator, "Missing operands for #" + othersubrNum + ", have " + stack.size() + ", need " + numArgs));
+                            stack.clear();
+                            break;
+                        }
 
-                if (results.size() > 0)
-                {
-                    LOG.warn("Value left on the PostScript stack in glyph " + glyphName + " of font " + fontName);
+                        psstack.push(othersubrNum);
+                        for ( int i = numArgs; i>0; i-- ) psstack.push(stack.pop());
+                        
+                        // othersubrs 0-3 have well defined semantics, we can do checks and add safety nets. 
+                        switch (othersubrNum) {
+                            // end flex, 3 args pushed onto PS stack:
+                            // arg1 = size of flex height, arg2 + arg3 = absolute coordinates (x, y)
+                            // on return, PS stack must contain y and x for the 2 "pop"s and "setcurrentpoint" following.
+                            case 0:
+                                if ( numArgs!=3 ) LOG.warn(message(operator, "#0 must have 3 arguments only")); 
+                                consumer.apply(Type1Command.CALLOTHERSUBR, psstack);
+                                // very flimsy safety net: pop arg1 (this should be done a better way)
+                                if ( numArgs==3 && psstack.size()==3 ) psstack.pop();
+                                break;
+
+                            // begin flex
+                            case 1:
+                                if ( numArgs!=0 ) LOG.warn(message(operator, "#1 must have no arguments"));
+                                consumer.apply(Type1Command.CALLOTHERSUBR, psstack);
+                                break;
+
+                            // commit flex point
+                            case 2:
+                                if ( numArgs!=0 ) LOG.warn(message(operator, "#2 must have no arguments"));
+                                consumer.apply(Type1Command.CALLOTHERSUBR, psstack);
+                                break;
+                                
+                            // 8.1) changing hints within a character
+                            case 3:
+                                // push subr# on PS stack, POP, callsubr should follow
+                                if ( numArgs!=1 ) LOG.warn(message(operator, "#3 must have one argument"));
+                                consumer.apply(Type1Command.CALLOTHERSUBR, psstack);
+                                break;
+
+                            default:
+                                consumer.apply(Type1Command.CALLOTHERSUBR, psstack);
+                        }
+
+                        // pops must follow
+                        while ( input.peekUnsignedByte(0) == ESCAPE && input.peekUnsignedByte(1) == POP ) {
+                            input.readByte();
+                            input.readByte();
+                            stack.push(psstack.pop()); // triggers indexoutofbounds if PS stack too small!
+                        }
+
+                        if (psstack.size()>0 && othersubrNum<4 ) {
+                            LOG.warn(message(operator, "Values left on the PostScript stack"));
+                        }
+                        
+                        psstack.clear();
+                        break;
+                        
+                    case POP:
+                        LOG.warn(message(operator, "Invalid at this position"));
+                        break;
+                        
+                        
+                    default:
+                        if ( operator.command!=null ) consumer.apply(operator.command, stack);
                 }
             }
-            else if (b0 >= 0 && b0 <= 31)
-            {
-                sequence.add(readCommand(input, b0));
-            } 
-            else if (b0 >= 32 && b0 <= 255)
-            {
-                sequence.add(readNumber(input, b0));
-            } 
-            else
-            {
-                throw new IllegalArgumentException();
+            catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+                LOG.warn(message(operator, e.getMessage()));
+            }
+            finally {
+                if ( !operator.keepStack ) stack.clear();
             }
         }
-        return sequence;
+
+        if ( depth>0 ) LOG.warn(message(Type1Operator.RETURN, "Is missing for subroutine!"));
     }
 
-    // this method is a workaround for the fact that Type1CharStringParser assumes that subrs and
-    // othersubrs can be unrolled without executing the 'div' operator, which isn't true
-    private static Integer removeInteger(List<Object> sequence) throws IOException
+    
+    private String message(String prefix)
     {
-        Object item = sequence.remove(sequence.size() - 1);
-        if (item instanceof Integer)
-        {
-            return (Integer)item;
-        }
-        CharStringCommand command = (CharStringCommand) item;
-
-        // div
-        if (command.getType1KeyWord()==Type1KeyWord.DIV)
-        {
-            int a = (Integer) sequence.remove(sequence.size() - 1);
-            int b = (Integer) sequence.remove(sequence.size() - 1);
-            return b / a;
-        }
-        throw new IOException("Unexpected char string command: " + command);
+        return message(fontName, glyphName, prefix);
     }
 
-    private CharStringCommand readCommand(DataInput input, int b0) throws IOException
+    
+    private String message(Type1Operator operator, String prefix)
     {
-        if (b0 == 12)
-        {
-            int b1 = input.readUnsignedByte();
-            return CharStringCommand.getInstance(b0, b1);
-        }
-        return CharStringCommand.getInstance(b0);
+        return message(fontName, glyphName, operator, prefix);
     }
 
-    private Integer readNumber(DataInput input, int b0) throws IOException
+    
+    public static String message(String font, String glpyh, Enum<?> operator, String prefix)
     {
-        if (b0 >= 32 && b0 <= 246)
-        {
-            return b0 - 139;
-        } 
-        else if (b0 >= 247 && b0 <= 250)
-        {
-            int b1 = input.readUnsignedByte();
-            return (b0 - 247) * 256 + b1 + 108;
-        } 
-        else if (b0 >= 251 && b0 <= 254)
-        {
-            int b1 = input.readUnsignedByte();
-            return -(b0 - 251) * 256 - b1 - 108;
-        } 
-        else if (b0 == 255)
-        {
-            return input.readInt();
-        } 
-        else
-        {
-            throw new IllegalArgumentException();
-        }
+        return message(operator.name() + ": " + prefix, glpyh, font);
     }
+
+    
+    public static String message(String font, String glyph, String prefix)
+    {
+        return prefix + " in glyph '" + glyph + "' of font " + font;
+    }
+    
 }
