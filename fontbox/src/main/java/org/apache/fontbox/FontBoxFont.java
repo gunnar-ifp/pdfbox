@@ -66,4 +66,10 @@ public interface FontBoxFont
      * @param name PostScript glyph name
      */
     boolean hasGlyph(String name) throws IOException;
+
+    
+    public static <T> T requireNonNullElse(T object, T defaultObject)
+    {
+        return object==null ? defaultObject : object;
+    }
 }

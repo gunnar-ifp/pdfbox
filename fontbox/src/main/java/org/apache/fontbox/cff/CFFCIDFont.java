@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.type1.Type1CharStringReader;
 
 /**
@@ -43,6 +45,8 @@ public class CFFCIDFont extends CFFFont
 
     private final Map<Integer, CIDKeyedType2CharString> charStringCache =
             new ConcurrentHashMap<Integer, CIDKeyedType2CharString>();
+    
+    private volatile int cid0 = -1;
 
     private final PrivateType1CharStringReader reader = new PrivateType1CharStringReader();
 
@@ -225,18 +229,19 @@ public class CFFCIDFont extends CFFFont
         CIDKeyedType2CharString type2 = charStringCache.get(cid);
         if (type2 == null)
         {
-            int gid = charset.getGIDForCID(cid);
-
-            byte[] bytes = charStrings[gid];
-            if (bytes == null)
+            // unknown cids map to gid 0, but we only want to cache if known cid
+            // so we reverse map gid 0 once and fall back to cid 0 for unknown cids.
+            final int gid = charset.getGIDForCID(cid);
+            if (gid == 0)
             {
-                bytes = charStrings[0]; // .notdef
+                int c0 = cid0;
+                if ( c0<0 ) cid0 = c0 = charset.getCIDForGID(0);
+                if ( c0!=cid ) return getType2CharString(c0);
             }
-            Type2CharStringParser parser = new Type2CharStringParser(fontName, cid);
-            List<Object> type2seq = parser.parse(bytes, globalSubrIndex, getLocalSubrIndex(gid));
-            type2 = new CIDKeyedType2CharString(reader, fontName, cid, gid, type2seq,
-                                                getDefaultWidthX(gid), getNominalWidthX(gid));
-            charStringCache.put(cid, type2);
+            type2 = new CIDKeyedType2CharString(reader, fontName, cid, gid, charStrings[gid],
+                getLocalSubrIndex(gid), globalSubrIndex, getDefaultWidthX(gid), getNominalWidthX(gid));
+            type2 = FontBoxFont.requireNonNullElse(charStringCache.putIfAbsent(cid, type2), type2);
+            
         }
         return type2;
     }

@@ -22,7 +22,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.fontbox.EncodedFont;
+import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.type1.Type1CharStringReader;
 
 /**
@@ -127,21 +129,17 @@ public class CFFType1Font extends CFFFont implements EncodedFont
         Type2CharString type2 = charStringCache.get(gid);
         if (type2 == null)
         {
-            byte[] bytes = null;
-            if (gid < charStrings.length)
+            final byte[] bytes = gid==0 || gid<charStrings.length ? charStrings[gid] : null;
+            if (bytes == null && gid != 0)
             {
-                bytes = charStrings[gid];
+                type2 = getType2CharString(0);
             }
-            if (bytes == null)
+            else
             {
-                // .notdef
-                bytes = charStrings[0];
+                type2 = new Type2CharString(reader, fontName, name, gid, bytes,
+                    getLocalSubrIndex(), globalSubrIndex, getDefaultWidthX(), getNominalWidthX());
+                type2 = FontBoxFont.requireNonNullElse(charStringCache.putIfAbsent(gid, type2), type2);
             }
-            Type2CharStringParser parser = new Type2CharStringParser(fontName, name);
-            List<Object> type2seq = parser.parse(bytes, globalSubrIndex, getLocalSubrIndex());
-            type2 = new Type2CharString(reader, fontName, name, gid, type2seq, getDefaultWidthX(),
-                    getNominalWidthX());
-            charStringCache.put(gid, type2);
         }
         return type2;
     }

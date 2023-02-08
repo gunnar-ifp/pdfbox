@@ -20,16 +20,16 @@ package org.apache.fontbox.type1;
 import java.awt.geom.GeneralPath;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.fontbox.FontBoxFont;
+
 import org.apache.fontbox.EncodedFont;
+import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.cff.Type1CharString;
-import org.apache.fontbox.cff.Type1CharStringParser;
 import org.apache.fontbox.encoding.Encoding;
 import org.apache.fontbox.pfb.PfbParser;
 import org.apache.fontbox.util.BoundingBox;
@@ -123,7 +123,7 @@ public final class Type1Font implements Type1CharStringReader, EncodedFont, Font
     int languageGroup;
 
     // Subrs array, and CharStrings dictionary
-    final List<byte[]> subrs = new ArrayList<byte[]>();
+    byte[][] subrs = {};
     final Map<String, byte[]> charstrings = new LinkedHashMap<String, byte[]>();
 
     // private caches
@@ -150,7 +150,7 @@ public final class Type1Font implements Type1CharStringReader, EncodedFont, Font
      */
     public List<byte[]> getSubrsArray()
     {
-        return Collections.unmodifiableList(subrs);
+        return Collections.unmodifiableList(Arrays.asList(subrs));
     }
 
     /**
@@ -193,15 +193,16 @@ public final class Type1Font implements Type1CharStringReader, EncodedFont, Font
         Type1CharString type1 = charStringCache.get(name);
         if (type1 == null)
         {
-            byte[] bytes = charstrings.get(name);
-            if (bytes == null)
+            final byte[] bytes = charstrings.get(name);
+            if (bytes == null && !".notdef".equals(name) )
             {
-                bytes = charstrings.get(".notdef");
+                type1 = getType1CharString(".notdef");
             }
-            Type1CharStringParser parser = new Type1CharStringParser(fontName, name);
-            List<Object> sequence = parser.parse(bytes, subrs);
-            type1 = new Type1CharString(this, fontName, name, sequence);
-            charStringCache.put(name, type1);
+            else
+            {
+                type1 = new Type1CharString(this, fontName, name, bytes, subrs);
+                type1 = FontBoxFont.requireNonNullElse(charStringCache.putIfAbsent(name, type1), type1);
+            }
         }
         return type1;
     }

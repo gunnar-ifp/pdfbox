@@ -718,11 +718,8 @@ final class Type1Parser
     private void readSubrs(int lenIV) throws IOException
     {
         // allocate size (array indexes may not be in-order)
-        int length = read(Token.INTEGER).intValue();
-        for (int i = 0; i < length; i++)
-        {
-            font.subrs.add(null);
-        }
+        final int length = read(Token.INTEGER).intValue();
+        font.subrs = new byte[length][];
         read(Token.NAME, "array");
 
         for (int i = 0; i < length; i++)
@@ -745,9 +742,9 @@ final class Type1Parser
             // RD
             Token charstring = read(Token.CHARSTRING);
             int j = index.intValue();
-            if (j < font.subrs.size())
+            if (j < length)
             {
-                font.subrs.set(j, decrypt(charstring.getData(), CHARSTRING_KEY, lenIV));
+                font.subrs[j] = decrypt(charstring.getData(), CHARSTRING_KEY, lenIV);
             }
             readPut();
         }
