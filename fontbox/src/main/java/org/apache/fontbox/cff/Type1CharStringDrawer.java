@@ -23,9 +23,9 @@ import java.util.Collection;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.cff.CharStringCommand.CommandConsumer;
+import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
 import org.apache.fontbox.cff.CharStringCommand.Type1Command;
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandConsumer;
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandProvider;
 import org.apache.fontbox.encoding.StandardEncoding;
 import org.apache.fontbox.type1.Type1CharStringReader;
 
@@ -38,7 +38,7 @@ import org.apache.fontbox.type1.Type1CharStringReader;
  * @author Villu Ruusmann
  * @author John Hewson
  */
-public class Type1CharStringDrawer implements Type1CommandConsumer
+public class Type1CharStringDrawer implements CommandConsumer<Type1Command>
 {
     private static final Log LOG = LogFactory.getLog(Type1CharStringDrawer.class);
 
@@ -354,7 +354,7 @@ public class Type1CharStringDrawer implements Type1CommandConsumer
         if ( !includes.contains(baseName) ) {
             includes.add(baseName);
             try {
-                Type1CommandProvider base = font.getType1CharString(baseName).getType1Stream();
+                CommandProvider<Type1Command> base = font.getType1CharString(baseName).getType1Stream();
                 base.stream(this);
             } catch (IOException e) {
                 LOG.warn(message(Type1Command.SEAC, "Invalid base character " + baseName + " (" + bchar + ")"));
@@ -370,7 +370,7 @@ public class Type1CharStringDrawer implements Type1CommandConsumer
         } else {
             includes.add(accentName);
             try {
-                Type1CommandProvider accent = font.getType1CharString(accentName).getType1Stream();
+                CommandProvider<Type1Command> accent = font.getType1CharString(accentName).getType1Stream();
                 closePath();
                 setcurrentpoint(
                     // The old path adding code did an AF transform, with the accent path starting at "asb".

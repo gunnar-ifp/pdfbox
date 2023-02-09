@@ -20,6 +20,8 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 
+import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
+import org.apache.fontbox.cff.CharStringCommand.Type1Command;
 import org.apache.fontbox.type1.Type1CharStringReader;
 
 /**
@@ -63,7 +65,7 @@ public class Type1CharString
     }
 
     
-    public CharStringCommand.Type1CommandProvider getType1Stream()
+    public CommandProvider<Type1Command> getType1Stream()
     {
         return new Type1CharStringParser(fontName, glyphName, bytes, subrs);
     }

@@ -18,10 +18,9 @@ package org.apache.fontbox.cff;
 
 import java.io.IOException;
 
+import org.apache.fontbox.cff.CharStringCommand.CommandConsumer;
 import org.apache.fontbox.cff.CharStringCommand.Type1Command;
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandConsumer;
 import org.apache.fontbox.cff.CharStringCommand.Type2Command;
-import org.apache.fontbox.cff.CharStringCommand.Type2CommandConsumer;
 
 /**
  * Converts a Type2 charstring into a Type1 charstring.<br>
@@ -33,18 +32,18 @@ import org.apache.fontbox.cff.CharStringCommand.Type2CommandConsumer;
  * @author Gunnar Brand
  * @since 07.02.2023
  */
-class Type2ToType1Converter implements Type2CommandConsumer
+class Type2ToType1Converter implements CommandConsumer<Type2Command>
 {
     private final static Type1Command[] ALT_LINE = { Type1Command.HLINETO, Type1Command.VLINETO }; 
     
     private final float defWidthX;
     private final float nominalWidthX;
-    private final Type1CommandConsumer consumer;
+    private final CommandConsumer<Type1Command> consumer;
     private final CharStringOperandStack stack = new CharStringOperandStack(CharStringCommand.TYPE1_OPERAND_STACK_LIMIT / 4);
-    private boolean openPath = false;
+    /** can either be 3, 2 or 0. */
+    private int firstCommand = 3;
     
-    
-    public Type2ToType1Converter(int defaultWidthX, int nomWidthX, Type1CommandConsumer consumer)
+    public Type2ToType1Converter(int defaultWidthX, int nomWidthX, CommandConsumer<Type1Command> consumer)
     {
         this.defWidthX = defaultWidthX;
         this.nominalWidthX = nomWidthX;
@@ -53,7 +52,7 @@ class Type2ToType1Converter implements Type2CommandConsumer
 
 
     @Override
-    public void apply(Type2Command command, CharStringOperandStack args, boolean firstCommand) throws IOException
+    public void apply(Type2Command command, CharStringOperandStack args) throws IOException
     {
 //        System.out.println("type2c: " + command + ", " + args.size());
         
@@ -61,71 +60,74 @@ class Type2ToType1Converter implements Type2CommandConsumer
 
         switch (command) {
             case RMOVETO:
-                if ( firstCommand ) addHsbw(args, args.size() > 2);
+                addHsbw(args, args.size() > 2);
                 closePath();
+                startPath();
                 consumer.apply(Type1Command.RMOVETO, args);
                 break;
 
             case HMOVETO:
-                if ( firstCommand ) addHsbw(args, args.size() > 1);
+                addHsbw(args, args.size() > 1);
                 closePath();
+                startPath();
                 consumer.apply(Type1Command.HMOVETO, args);
                 break;
 
             case VMOVETO:
-                if ( firstCommand ) addHsbw(args, args.size() > 1);
+                addHsbw(args, args.size() > 1);
                 closePath();
+                startPath();
                 consumer.apply(Type1Command.VMOVETO, args);
                 break;
                 
             case RLINETO:
                 // {dxa dya}+
+                startPath();
                 while ( args.size() >= 2 ) {
                     consumer.apply(Type1Command.RLINETO, stack.set(args, 2));
                 }
-                if ( !openPath ) openPath = true;
                 break;
 
             case HLINETO:
                 // dx1 {dya dxb}* | {dxa dyb}+
+                startPath();
                 for ( int idx = 0; args.size()>0; idx++ ) {
                     consumer.apply(ALT_LINE[idx & 1], stack.set(args.pull()));
                 }
-                if ( !openPath ) openPath = true;
                 break;
 
             case VLINETO:
                 // dy1 {dxa dyb}* | {dya dxb}+
+                startPath();
                 for ( int idx = 1; args.size()>0; idx++ ) {
                     consumer.apply(ALT_LINE[idx & 1], stack.set(args.pull()));
                 }
-                if ( !openPath ) openPath = true;
                 break;
 
             case RRCURVETO:
                 // {dxa dya dxb dyb dxc dyc}+
+                startPath();
                 while ( args.size() >= 6 ) {
                     consumer.apply(Type1Command.RRCURVETO, stack.set(args, 6));
                 }
-                if ( !openPath ) openPath = true;
                 break;
     
             case HHCURVETO:
                 // dy1? {dxa dxb dyb dxc}+
+                startPath();
                 for ( double dy1 = odd ? args.pull() : 0; args.size() >= 4; dy1 = 0 ) {
                     stack.set6(args.pull(), dy1, args.pull(), args.pull(), args.pull(), 0);
                     consumer.apply(Type1Command.RRCURVETO, stack);
                 }
-                if ( !openPath ) openPath = true;
                 break; 
                 
             case VVCURVETO:
                 // dx1? {dya dxb dyb dyc}+
+                startPath();
                 for ( double dx1 = odd ? args.pull() : 0; args.size() >= 4; dx1 = 0 ) {
                     stack.set6(dx1, args.pull(), args.pull(), args.pull(), 0, args.pull());
                     consumer.apply(Type1Command.RRCURVETO, stack);
                 }
-                if ( !openPath ) openPath = true;
                 break; 
 
             case HVCURVETO:
@@ -134,6 +136,7 @@ class Type2ToType1Converter implements Type2CommandConsumer
             case VHCURVETO:
                 //  dy1 dx2 dy2 dx3 {dxa dxb dyb dyc dyd dxe dye dxf}* dyf?
                 // {dya dxb dyb dxc  dxd dxe dye dyf}+ dxf?
+                startPath();
                 for ( boolean hv = command==Type2Command.HVCURVETO; args.size() >= 4; hv = !hv ) {
                     double d1x_y = args.pull(), d2x = args.pull(), d2y = args.pull(), d3y_x = args.pull();
                     double d3x_y = args.size()>0 && args.size()<4 ? args.pull() : 0;
@@ -144,26 +147,25 @@ class Type2ToType1Converter implements Type2CommandConsumer
                     }
                     consumer.apply(Type1Command.RRCURVETO, stack);
                 }
-                if ( !openPath ) openPath = true;
                 break;
                 
             case RCURVELINE:
+                startPath();
                 while ( args.size() >= 8 ) consumer.apply(Type1Command.RRCURVETO, stack.set(args, 6));
                 consumer.apply(Type1Command.RLINETO, stack.set(args, 2));
-                if ( !openPath ) openPath = true;
                 break; 
 
             case RLINECURVE:
+                startPath();
                 while ( args.size() >= 8 ) consumer.apply(Type1Command.RLINETO, stack.set(args, 2));
                 consumer.apply(Type1Command.RRCURVETO, stack.set(args, 6));
-                if ( !openPath ) openPath = true;
                 break; 
 
             case FLEX:
                 // |- dx1 dy1 dx2 dy2 dx3 dy3 dx4 dy4 dx5 dy5 dx6 dy6 fd
+                startPath();
                 consumer.apply(Type1Command.RRCURVETO, stack.set(args, 6));
                 consumer.apply(Type1Command.RRCURVETO, stack.set(args, 6));
-                if ( !openPath ) openPath = true;
                 break;
     
             case HFLEX: {
@@ -174,9 +176,9 @@ class Type2ToType1Converter implements Type2CommandConsumer
                 // c) the flex depth is 50
                 double dx1 = args.pull(), dx2 = args.pull(), dy2 = args.pull(), dx3 = args.pull(),
                     dx4 = args.pull(), dx5 = args.pull(), dx6 = args.pull();
+                startPath();
                 consumer.apply(Type1Command.RRCURVETO, stack.set6(dx1, 0, dx2,  dy2, dx3, 0));
                 consumer.apply(Type1Command.RRCURVETO, stack.set6(dx4, 0, dx5, -dy2, dx6, 0));
-                if ( !openPath ) openPath = true;
                 break;
             }
     
@@ -191,9 +193,9 @@ class Type2ToType1Converter implements Type2CommandConsumer
                     dx3 = args.pull(), dx4 = args.pull(), dx5 = args.pull(), dy5 = args.pull(),
                     dx6 = args.pull(), dy = dy1 + dy2 + dy5;
                 // Note: previous implementation used 0 for dy6, which would keep it at dy5 
+                startPath();
                 consumer.apply(Type1Command.RRCURVETO, stack.set6(dx1, dy1, dx2, dy2, dx3,   0));
                 consumer.apply(Type1Command.RRCURVETO, stack.set6(dx4,   0, dx5, dy5, dx6, -dy));
-                if ( !openPath ) openPath = true;
                 break;
             }
     
@@ -212,13 +214,14 @@ class Type2ToType1Converter implements Type2CommandConsumer
                     dx3 = args.pull(), dy3 = args.pull(), dx4 = args.pull(), dy4 = args.pull(),
                     dx5 = args.pull(), dy5 = args.pull(), d6 = args.pull(),
                     dx = dx1 + dx2 + dx3 + dx4 + dx5, dy = dy1 + dy2 + dy3 + dy4 + dy5;
+                startPath();
                 consumer.apply(Type1Command.RRCURVETO, stack.set6(dx1, dy1, dx2, dy2, dx3, dy3));
                 if ( Math.abs(dx)>Math.abs(dy) ) {
                     consumer.apply(Type1Command.RRCURVETO, stack.set6(dx4, dy4, dx5, dy5, d6, -dy));
                 } else {
                     consumer.apply(Type1Command.RRCURVETO, stack.set6(dx4, dy4, dx5, dy5, -dx, d6));
                 }
-                if ( !openPath ) openPath = true;
+                firstCommand = 0;
                 break;
             }
     
@@ -226,7 +229,7 @@ class Type2ToType1Converter implements Type2CommandConsumer
             case ENDCHAR:
                 // - {adx ady bchar achar}? endchar |-  (please note that arguments are take from top of stack
                 // but width argument is supposed to be bottom of stack
-                if ( firstCommand ) addHsbw(args, args.size()==1 || args.size()>=5);
+                addHsbw(args, args.size()==1 || args.size()>=5);
                 closePath();
                 if ( args.size()>=4 ) {
                     int achar = args.popInt(), bchar = args.popInt();
@@ -258,7 +261,7 @@ class Type2ToType1Converter implements Type2CommandConsumer
 //                break;
             case HINTMASK:
             case CNTRMASK:
-                if ( firstCommand ) addHsbw(args, odd);
+                addHsbw(args, odd);
                 break;
                 
             case DOTSECTION:
@@ -266,20 +269,39 @@ class Type2ToType1Converter implements Type2CommandConsumer
                 break;
         }
     }
+
     
+    @Override
+    public void end() throws IOException
+    {
+        consumer.end();
+    }
+
     
     private void addHsbw(CharStringOperandStack operands, boolean hasWidth) throws IOException
     {
-        consumer.apply(Type1Command.HSBW, stack.set2(0, hasWidth ? operands.pull() + nominalWidthX : defWidthX));
+        if ( (firstCommand & 1) == 1 ) {
+            consumer.apply(Type1Command.HSBW, stack.set2(0, hasWidth ? operands.pull() + nominalWidthX : defWidthX));
+            firstCommand--;
+        }
     }
 
 
+    private void startPath()
+    {
+        firstCommand = 0;
+    }
+
+    
     /**
-     * Closes path if not first move operation.
+     * Closes path if previously being moved or drawn to.
      */
     private void closePath() throws IOException
     {
-        if ( openPath ) consumer.apply(Type1Command.CLOSEPATH, stack.set()); else openPath = true;
+        if ( firstCommand==0 ) {
+            consumer.apply(Type1Command.CLOSEPATH, stack.set());
+            firstCommand = 2;
+        }
     }
     
 }
