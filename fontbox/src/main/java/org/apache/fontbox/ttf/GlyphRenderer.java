@@ -95,7 +95,8 @@ final class GlyphRenderer
                     continue;
                 }
 
-                // off curve loop
+                // see: http://www.fifi.org/doc/libttf2/docs/glyphs.htm
+                // off curve "loop": two neighboring off curve control points points max 
                 while ( ++idx<=end ) {
                     if ( idx==end ) {
                         quadTo(isLog, path, x1, y1, joinX, joinY);
