@@ -60,7 +60,7 @@ import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
  * operators where appropriate.
  * </ul>
  * 
- * @see <a href="https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr">The CFF2 CharString Format</a> 
+ * @see <a href="https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr">The CFF2 CharString Format</a>
  *
  * @author Gunnar Brand
  * @since 09.02.2023

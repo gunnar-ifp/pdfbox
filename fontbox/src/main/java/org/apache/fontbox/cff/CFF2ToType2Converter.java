@@ -24,6 +24,7 @@ import org.apache.fontbox.cff.CharStringCommand.Type2Command;
 
 /**
  * Converts a CFF2 charstring into a Type2 charstring.<br>
+ * TODO: probably need this on a binary level, i.e. convert "CFF2" streams into "CFF " streams.
  * 
  * @author Gunnar Brand
  * @since 09.02.2023
