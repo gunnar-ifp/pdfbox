@@ -92,15 +92,15 @@ abstract class TTFDataStream implements Closeable
     /**
      * Read an unsigned byte.
      * 
-     * @return An unsigned byte.
+     * @return An unsigned byte or -1 if end of input.
      * @throws IOException If there is an error reading the data.
      */
     public abstract int read() throws IOException;
 
     /**
-     * Read an unsigned byte.
+     * Reads a long value.
      * 
-     * @return An unsigned byte.
+     * @return A long.
      * @throws IOException If there is an error reading the data.
      */
     public abstract long readLong() throws IOException;
@@ -113,8 +113,9 @@ abstract class TTFDataStream implements Closeable
      */
     public int readSignedByte() throws IOException
     {
-        int signedByte = read();
-        return signedByte <= 127 ? signedByte : signedByte - 256;
+        int unsignedByte = read();
+        if (unsignedByte == -1) throw new EOFException("premature EOF");
+        return (byte)unsignedByte;
     }
 
     /**
@@ -172,7 +173,7 @@ abstract class TTFDataStream implements Closeable
         int[] array = new int[length];
         for (int i = 0; i < length; i++)
         {
-            array[i] = read();
+            array[i] = readUnsignedByte();
         }
         return array;
     }
