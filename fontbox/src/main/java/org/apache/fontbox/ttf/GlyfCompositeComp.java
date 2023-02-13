@@ -65,9 +65,12 @@ public class GlyfCompositeComp
      * If set, this forces the aw and lsb (and rsb) for the composite to be equal to those from this original glyph.
      */
     protected static final short USE_MY_METRICS = 0x0200;
-
-    private int firstIndex;
-    private int firstContour;
+    /** Offset of the referenced glyph's first point in parent glyph. */ 
+    private int offsetPoints;
+    /** Offset of the referenced glyph's first contour in parent glyph. */
+    private int offsetContours;
+    private GlyphDescription glyph;
+    
     private final short argument1;
     private final short argument2;
     private final short flags;
@@ -143,45 +146,47 @@ public class GlyfCompositeComp
         }
     }
 
-    /**
-     * Sets the first index.
-     * 
-     * @param idx the first index
-     */
-    public void setFirstIndex(int idx)
+
+    void setPointOffset(int idx)
     {
-        firstIndex = idx;
+        offsetPoints = idx;
     }
 
     /**
-     * Returns the first index.
-     * 
-     * @return the first index.
+     * Returns the offset of this glyphs first point in the parent glyph.
      */
-    public int getFirstIndex()
+    int getPointOffset()
     {
-        return firstIndex;
+        return offsetPoints;
+    }
+
+    void setContourOffset(int idx)
+    {
+        offsetContours = idx;
     }
 
     /**
-     * Sets the index for the first contour.
-     * 
-     * @param idx the index of the first contour
-     */
-    public void setFirstContour(int idx)
-    {
-        firstContour = idx;
-    }
-
-    /**
-     * Returns the index of the first contour.
+     * Returns the offset of this glyph's first contour in the parent glyph.
      * 
      * @return the index of the first contour.
      */
-    public int getFirstContour()
+    int getContourOffset()
     {
-        return firstContour;
+        return offsetContours;
     }
+    
+    
+    public GlyphDescription getGlyph()
+    {
+        return glyph;
+    }
+    
+    
+    public void setGlyph(GlyphDescription glyph)
+    {
+        this.glyph = glyph;
+    }
+    
 
     /**
      * Returns argument 1.

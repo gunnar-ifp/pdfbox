@@ -80,17 +80,7 @@ public abstract class GlyfDescript implements GlyphDescription
         contourCount = numberOfContours;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void resolve() 
-    {
-    }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getContourCount() 
     {

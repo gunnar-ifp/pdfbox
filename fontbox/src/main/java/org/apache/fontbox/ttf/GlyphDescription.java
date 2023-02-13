@@ -77,9 +77,4 @@ public interface GlyphDescription
      * @return the number of contours
      */
     int getContourCount();
-    
-    /**
-     * Resolve all parts of an composite glyph.
-     */
-    void resolve(); 
 }

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -42,33 +43,29 @@ public class GlyfCompositeDescript extends GlyfDescript
      */
     private static final Log LOG = LogFactory.getLog(GlyfCompositeDescript.class);
 
-    private final List<GlyfCompositeComp> components = new ArrayList<GlyfCompositeComp>();
-    private final Map<Integer,GlyphDescription> descriptions = new HashMap<Integer,GlyphDescription>();
-    private GlyphTable glyphTable = null;
-    private boolean beingResolved = false;
-    private boolean resolved = false;
-    private int pointCount = -1;
-    private int contourCount = -1;
+    private final GlyfCompositeComp[] components;
+    private int contourCount;
+    private int pointCount;
 
     /**
      * Constructor.
      * 
      * @param bais the stream to be read
      * @param glyphTable the Glyphtable containing all glyphs
+     * @param Set of known composite glpyhs in this composite glyph chain.
      * @throws IOException is thrown if something went wrong
      */
-    GlyfCompositeDescript(TTFDataStream bais, GlyphTable glyphTable) throws IOException
+    GlyfCompositeDescript(TTFDataStream bais, GlyphTable glyphTable, Set<Integer> known) throws IOException
     {
         super((short) -1, bais);
 
-        this.glyphTable = glyphTable;
-
-        // Get all of the composite components
+        // Load all of the composite components
+        final List<GlyfCompositeComp> comps = new ArrayList<GlyfCompositeComp>();
         GlyfCompositeComp comp;
         do
         {
             comp = new GlyfCompositeComp(bais);
-            components.add(comp);
+            comps.add(comp);
         } 
         while ((comp.getFlags() & GlyfCompositeComp.MORE_COMPONENTS) != 0);
 
@@ -77,174 +74,43 @@ public class GlyfCompositeDescript extends GlyfDescript
         {
             readInstructions(bais, (bais.readUnsignedShort()));
         }
-        initDescriptions();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void resolve()
-    {
-        if (resolved)
-        {
-            return;
-        }
-        if (beingResolved)
-        {
-            LOG.error("Circular reference in GlyfCompositeDesc");
-            return;
-        }
-        beingResolved = true;
-
-        int firstIndex = 0;
-        int firstContour = 0;
-
-        for (GlyfCompositeComp comp : components)
-        {
-            comp.setFirstIndex(firstIndex);
-            comp.setFirstContour(firstContour);
-
-            GlyphDescription desc = descriptions.get(comp.getGlyphIndex());
-            if (desc != null)
-            {
-                desc.resolve();
-                firstIndex += desc.getPointCount();
-                firstContour += desc.getContourCount();
+        
+        this.components = comps.toArray(new GlyfCompositeComp[comps.size()]);
+        this.contourCount = 0;
+        this.pointCount = 0;
+        
+        // Load children and initialize counts
+        final Map<Integer, GlyphDescription> glyphs = new HashMap<>();
+        for (GlyfCompositeComp c : components) {
+            final Integer index = c.getGlyphIndex();
+            c.setContourOffset(contourCount);
+            c.setPointOffset(pointCount);
+            GlyphDescription gd = glyphs.get(index);
+            if ( gd==null ) {
+                try {
+                    // TODO: composite unnecessarily cached.
+                    GlyphData glyph = glyphTable.getGlyph(index, known);
+                    if (glyph == null) {
+                        // TODO: never null for gid inside font's gid range...
+                        LOG.error("Missing glyph description for index " + c.getGlyphIndex());
+                    } else {
+                        gd = glyph.getDescription();
+                        glyphs.put(index, gd);
+                    }
+                }
+                catch (IOException e) {
+                    LOG.error(e);
+                }
             }
-        }
-        resolved = true;
-        beingResolved = false;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getEndPtOfContours(int i)
-    {
-        GlyfCompositeComp c = getCompositeCompEndPt(i);
-        if (c != null)
-        {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            return gd.getEndPtOfContours(i - c.getFirstContour()) + c.getFirstIndex();
-        }
-        return 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public byte getFlags(int i)
-    {
-        GlyfCompositeComp c = getCompositeComp(i);
-        if (c != null)
-        {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            return gd.getFlags(i - c.getFirstIndex());
-        }
-        return 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public short getXCoordinate(int i)
-    {
-        GlyfCompositeComp c = getCompositeComp(i);
-        if (c != null)
-        {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            int n = i - c.getFirstIndex();
-            int x = gd.getXCoordinate(n);
-            int y = gd.getYCoordinate(n);
-            return (short) (c.scaleX(x, y) + c.getXTranslate());
-        }
-        return 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public short getYCoordinate(int i)
-    {
-        GlyfCompositeComp c = getCompositeComp(i);
-        if (c != null)
-        {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            int n = i - c.getFirstIndex();
-            int x = gd.getXCoordinate(n);
-            int y = gd.getYCoordinate(n);
-            return (short) (c.scaleY(x, y) + c.getYTranslate());
-        }
-        return 0;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isComposite()
-    {
-        return true;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getPointCount()
-    {
-        if (!resolved)
-        {
-            LOG.error("getPointCount called on unresolved GlyfCompositeDescript");
-        }
-        if (pointCount < 0)
-        {
-            GlyfCompositeComp c = components.get(components.size() - 1);
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            if (gd == null)
-            {
-                LOG.error("GlyphDescription for index " + c.getGlyphIndex() + " is null, returning 0");
-                pointCount = 0;
+            if ( gd!=null ) {
+                c.setGlyph(gd);
+                contourCount += gd.getContourCount();
+                pointCount   += gd.getPointCount();
             }
-            else
-            {
-                pointCount = c.getFirstIndex() + gd.getPointCount();
-            }
-        }   
-        return pointCount;
+            
+        }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getContourCount()
-    {
-        if (!resolved)
-        {
-            LOG.error("getContourCount called on unresolved GlyfCompositeDescript");
-        }
-        if (contourCount < 0)
-        {
-            GlyfCompositeComp c = components.get(components.size() - 1);
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            if (gd == null)
-            {
-                LOG.error("missing glyph description for index " + c.getGlyphIndex());
-                contourCount = 0;
-            }
-            else
-            {
-                contourCount = c.getFirstContour() + gd.getContourCount();
-            }
-        }
-        return contourCount;
-    }
 
     /**
      * Get number of components.
@@ -253,52 +119,117 @@ public class GlyfCompositeDescript extends GlyfDescript
      */
     public int getComponentCount()
     {
-        return components.size();
+        return components.length;
+    }
+    
+
+    @Override
+    public boolean isComposite()
+    {
+        return true;
     }
 
-    private GlyfCompositeComp getCompositeComp(int i)
+
+    @Override
+    public int getPointCount()
+    {
+        return pointCount;
+    }
+
+
+    @Override
+    public int getContourCount()
+    {
+        return contourCount;
+    }
+
+
+    @Override
+    public int getEndPtOfContours(int contour)
+    {
+        GlyfCompositeComp c = lookupCompositeCompContour(contour);
+        if (c != null)
+        {
+            GlyphDescription gd = c.getGlyph();
+            return c.getPointOffset() + gd.getEndPtOfContours(contour - c.getContourOffset());
+        }
+        return 0;
+    }
+
+
+    @Override
+    public byte getFlags(int point)
+    {
+        GlyfCompositeComp c = lookupCompositeCompPoint(point);
+        if (c != null)
+        {
+            GlyphDescription gd = c.getGlyph();
+            return gd.getFlags(point - c.getPointOffset());
+        }
+        return 0;
+    }
+
+
+    @Override
+    public short getXCoordinate(int point)
+    {
+        GlyfCompositeComp c = lookupCompositeCompPoint(point);
+        if (c != null)
+        {
+            GlyphDescription gd = c.getGlyph();
+            point -= c.getPointOffset();
+            int x = gd.getXCoordinate(point);
+            int y = gd.getYCoordinate(point);
+            return (short) (c.scaleX(x, y) + c.getXTranslate());
+        }
+        return 0;
+    }
+
+    
+    @Override
+    public short getYCoordinate(int point)
+    {
+        GlyfCompositeComp c = lookupCompositeCompPoint(point);
+        if (c != null)
+        {
+            GlyphDescription gd = c.getGlyph();
+            point -= c.getPointOffset();
+            int x = gd.getXCoordinate(point);
+            int y = gd.getYCoordinate(point);
+            return (short) (c.scaleY(x, y) + c.getYTranslate());
+        }
+        return 0;
+    }
+
+
+    private GlyfCompositeComp lookupCompositeCompContour(int contour)
     {
         for (GlyfCompositeComp c : components)
         {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            if (c.getFirstIndex() <= i && gd != null && i < (c.getFirstIndex() + gd.getPointCount()))
-            {
-                return c;
+            int offset = c.getContourOffset();
+            if (offset <= contour ) {
+                GlyphDescription gd = c.getGlyph();
+                if ( gd != null && contour < (offset + gd.getContourCount()) ) return c;
+            } else {
+                break;
             }
         }
         return null;
     }
 
-    private GlyfCompositeComp getCompositeCompEndPt(int i)
+    private GlyfCompositeComp lookupCompositeCompPoint(int point)
     {
         for (GlyfCompositeComp c : components)
         {
-            GlyphDescription gd = descriptions.get(c.getGlyphIndex());
-            if (c.getFirstContour() <= i && gd != null && i < (c.getFirstContour() + gd.getContourCount()))
-            {
-                return c;
+            int offset = c.getPointOffset();
+            if (offset <= point ) {
+                GlyphDescription gd = c.getGlyph();
+                if ( gd != null && point < (offset + gd.getPointCount()) ) return c;
+            } else {
+                break;
             }
         }
         return null;
     }
 
-    private void initDescriptions()
-    {
-        for (GlyfCompositeComp component : components)
-        {
-            try
-            {
-                int index = component.getGlyphIndex();
-                GlyphData glyph = glyphTable.getGlyph(index);
-                if (glyph != null)
-                {
-                    descriptions.put(index, glyph.getDescription());
-                }
-            }
-            catch (IOException e)
-            {
-                LOG.error(e);
-            }            
-        }
-    }
 }
