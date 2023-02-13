@@ -147,24 +147,14 @@ public class GlyfCompositeComp
     }
 
 
-    void setPointOffset(int idx)
+    void init(GlyphDescription gd, int contourOffset, int pointOffset)
     {
-        offsetPoints = idx;
+        glyph = gd;
+        offsetContours = contourOffset;
+        offsetPoints = pointOffset;
     }
 
-    /**
-     * Returns the offset of this glyphs first point in the parent glyph.
-     */
-    int getPointOffset()
-    {
-        return offsetPoints;
-    }
-
-    void setContourOffset(int idx)
-    {
-        offsetContours = idx;
-    }
-
+    
     /**
      * Returns the offset of this glyph's first contour in the parent glyph.
      * 
@@ -176,15 +166,18 @@ public class GlyfCompositeComp
     }
     
     
-    public GlyphDescription getGlyph()
+    /**
+     * Returns the offset of this glyphs first point in the parent glyph.
+     */
+    int getPointOffset()
+    {
+        return offsetPoints;
+    }
+
+    
+    GlyphDescription getGlyph()
     {
         return glyph;
-    }
-    
-    
-    public void setGlyph(GlyphDescription glyph)
-    {
-        this.glyph = glyph;
     }
     
 

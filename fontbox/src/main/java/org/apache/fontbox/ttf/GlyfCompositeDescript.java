@@ -44,8 +44,8 @@ public class GlyfCompositeDescript extends GlyfDescript
     private static final Log LOG = LogFactory.getLog(GlyfCompositeDescript.class);
 
     private final GlyfCompositeComp[] components;
-    private int contourCount;
-    private int pointCount;
+    private final int contourCount;
+    private final int pointCount;
 
     /**
      * Constructor.
@@ -61,30 +61,25 @@ public class GlyfCompositeDescript extends GlyfDescript
 
         // Load all of the composite components
         final List<GlyfCompositeComp> comps = new ArrayList<GlyfCompositeComp>();
-        GlyfCompositeComp comp;
+        GlyfCompositeComp last;
         do
         {
-            comp = new GlyfCompositeComp(bais);
-            comps.add(comp);
+            last = new GlyfCompositeComp(bais);
+            comps.add(last);
         } 
-        while ((comp.getFlags() & GlyfCompositeComp.MORE_COMPONENTS) != 0);
+        while ((last.getFlags() & GlyfCompositeComp.MORE_COMPONENTS) != 0);
 
         // Are there hinting instructions to read?
-        if ((comp.getFlags() & GlyfCompositeComp.WE_HAVE_INSTRUCTIONS) != 0)
+        if ((last.getFlags() & GlyfCompositeComp.WE_HAVE_INSTRUCTIONS) != 0)
         {
             readInstructions(bais, (bais.readUnsignedShort()));
         }
         
-        this.components = comps.toArray(new GlyfCompositeComp[comps.size()]);
-        this.contourCount = 0;
-        this.pointCount = 0;
-        
         // Load children and initialize counts
         final Map<Integer, GlyphDescription> glyphs = new HashMap<>();
-        for (GlyfCompositeComp c : components) {
+        int contourOffset = 0, pointOffset = 0;
+        for (GlyfCompositeComp c : comps) {
             final Integer index = c.getGlyphIndex();
-            c.setContourOffset(contourCount);
-            c.setPointOffset(pointCount);
             GlyphDescription gd = glyphs.get(index);
             if ( gd==null ) {
                 try {
@@ -92,7 +87,7 @@ public class GlyfCompositeDescript extends GlyfDescript
                     GlyphData glyph = glyphTable.getGlyph(index, known);
                     if (glyph == null) {
                         // TODO: never null for gid inside font's gid range...
-                        LOG.error("Missing glyph description for index " + c.getGlyphIndex());
+                        LOG.error("Missing glyph description for index " + index);
                     } else {
                         gd = glyph.getDescription();
                         glyphs.put(index, gd);
@@ -102,13 +97,16 @@ public class GlyfCompositeDescript extends GlyfDescript
                     LOG.error(e);
                 }
             }
+            c.init(gd, contourOffset, pointOffset);
             if ( gd!=null ) {
-                c.setGlyph(gd);
-                contourCount += gd.getContourCount();
-                pointCount   += gd.getPointCount();
+                contourOffset += gd.getContourCount();
+                pointOffset   += gd.getPointCount();
             }
-            
         }
+
+        this.components   = comps.toArray(new GlyfCompositeComp[comps.size()]);
+        this.contourCount = contourOffset;
+        this.pointCount   = pointOffset;
     }
 
 
