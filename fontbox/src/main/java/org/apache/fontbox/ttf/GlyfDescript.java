@@ -24,9 +24,12 @@ import java.io.IOException;
  * This class is based on code from Apache Batik a subproject of Apache XMLGraphics.
  * see http://xmlgraphics.apache.org/batik/ for further details.
  * 
+ * @see "https://learn.microsoft.com/en-us/typography/opentype/spec/glyf"
  */
 public abstract class GlyfDescript implements GlyphDescription 
 {
+    public final static boolean HINTING_ENABLED = Boolean.getBoolean("org.apache.fontbox.ttf.GlyfDescript.enable-hinting");
+    
 
     // Flags describing a coordinate of a glyph.
     /**
@@ -50,7 +53,7 @@ public abstract class GlyfDescript implements GlyphDescription
      * This flag as two meanings, depending on how the
      * x-short vector flags is set.
      * If the x-short vector is set, this bit describes the sign
-     * of the value, with 1 equaling positive and 0 positive.
+     * of the value, with 1 equaling positive and 0 negative.
      * If the x-short vector is not set and this bit is also not
      * set, the current x-coordinate is a signed 16-bit delta vector.
      */
@@ -59,7 +62,7 @@ public abstract class GlyfDescript implements GlyphDescription
      * This flag as two meanings, depending on how the
      * y-short vector flags is set.
      * If the y-short vector is set, this bit describes the sign
-     * of the value, with 1 equaling positive and 0 positive.
+     * of the value, with 1 equaling positive and 0 negative.
      * If the y-short vector is not set and this bit is also not
      * set, the current y-coordinate is a signed 16-bit delta vector.
      */
@@ -104,6 +107,10 @@ public abstract class GlyfDescript implements GlyphDescription
      */
     void readInstructions(TTFDataStream bais, int count) throws IOException
     {
+        if ( !HINTING_ENABLED ) {
+            bais.seek(bais.getCurrentPosition() + count);
+            count = 0;
+        }
         instructions = bais.readUnsignedByteArray(count);
     }
 
