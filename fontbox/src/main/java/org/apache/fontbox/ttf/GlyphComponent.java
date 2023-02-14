@@ -185,18 +185,17 @@ public class GlyphComponent
         if ( hasFlag(ARGS_ARE_XY_VALUES) )
         {
             if ( hasFlag(SCALED_COMPONENT_OFFSET) && !hasFlag(UNSCALED_COMPONENT_OFFSET) ) {
-                // TODO: this code might not be correct, maybe has to be
-                // horizontalScale = sqrt(XScale*XScale + Scale01*Scale01)
-                // verticalScale   = sqrt(YScale*YScale + Scale10*Scale10)
+                // see: https://fontforge.org/archive/Composites/index.html
+                double ox = argument1 * Math.sqrt(scaleX * scaleX + scale01 * scale01);
+                double oy = argument2 * Math.sqrt(scaleY * scaleY + scale10 * scale10);
                 if ( hasFlag(ROUND_XY_TO_GRID) ) {
-                    translateXf = translateXi = Math.round(scaleX(argument1, argument2));
-                    translateYf = translateYi = Math.round(scaleY(argument1, argument2));
+                    translateXf = translateXi = Math.round((float)ox);
+                    translateYf = translateYi = Math.round((float)oy);
                 } else {
                     translate   = 3;
-                    translateXf = scaleX(argument1, argument2);
-                    translateYf = scaleY(argument1, argument2);
-                    translateXi = 0;
-                    translateYi = 0;
+                    translateXf = (float)ox;
+                    translateYf = (float)oy;
+                    translateXi = translateYi = 0;
                 }
             } else {
                 translateXf = translateXi = argument1; 
@@ -350,24 +349,6 @@ public class GlyphComponent
     }
 
     
-    /**
-     * Returns the scaled x-coordinate.
-     */
-    public float scaleX(short x, short y)
-    {
-        return x * scaleX + y * scale10;
-    }
-
-    
-    /**
-     * Returns the scaled y-coordinate.
-     */
-    public float scaleY(short x, short y)
-    {
-        return x * scale01 + y * scaleY;
-    }
-    
-
     /**
      * Transforms and grid fits the x-coordinate of a point for this component.
      * 
