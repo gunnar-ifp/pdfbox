@@ -17,7 +17,6 @@
 package org.apache.fontbox.ttf;
 
 import java.awt.geom.GeneralPath;
-import java.util.Locale;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -53,14 +52,14 @@ final class GlyphRenderer
             // extra joining point at start and end of curve possible (if idx==start and/or end > contourEnd).
             final int start, end;
             final int joinX, joinY;
-            if ( isOnCurve(glyphDescription.getFlags(contourStart)) ) {
+            if (  glyphDescription.isOnCurve(contourStart) ) {
                 // first point is on curve: start normal, end with joiner = first point
                 joinX = glyphDescription.getXCoordinate(contourStart);
                 joinY = glyphDescription.getYCoordinate(contourStart);
                 start = contourStart + 1;
                 end   = contourEnd   + 1;
             }
-            else if ( isOnCurve(glyphDescription.getFlags(contourEnd)) ) {
+            else if ( glyphDescription.isOnCurve(contourEnd) ) {
                 // first is off-curve point, try using last point
                 // start with joiner = last point, end normal
                 joinX = glyphDescription.getXCoordinate(contourEnd);
@@ -90,7 +89,7 @@ final class GlyphRenderer
                 int x1 = glyphDescription.getXCoordinate(idx);
                 int y1 = glyphDescription.getYCoordinate(idx);
                 
-                if ( isOnCurve(glyphDescription.getFlags(idx)) ) {
+                if ( glyphDescription.isOnCurve(idx) ) {
                     lineTo(isLog, path, x1, y1);
                     continue;
                 }
@@ -102,7 +101,7 @@ final class GlyphRenderer
                         quadTo(isLog, path, x1, y1, joinX, joinY);
                         continue ONCURVE;
                     }
-                    else if ( isOnCurve(glyphDescription.getFlags(idx)) ) {
+                    else if ( glyphDescription.isOnCurve(idx) ) {
                         int x2 = glyphDescription.getXCoordinate(idx);
                         int y2 = glyphDescription.getYCoordinate(idx);
                         quadTo(isLog, path, x1, y1, x2, y2);
@@ -126,28 +125,22 @@ final class GlyphRenderer
     
     private static void moveTo(boolean isLog, GeneralPath path, int x, int y)
     {
-        if (isLog) LOG.trace("moveTo: " + String.format(Locale.US, "%d, %d", x, y));
+        if (isLog) LOG.trace("moveTo: " + x + ", " + y);
         path.moveTo(x, y);
     }
 
     
     private static void lineTo(boolean isLog, GeneralPath path, int x, int y)
     {
-        if (isLog) LOG.trace("lineTo: " + String.format(Locale.US, "%d, %d", x, y));
+        if (isLog) LOG.trace("lineTo: " + x + ", " + y);
         path.lineTo(x, y);
     }
 
 
     private static void quadTo(boolean isLog, GeneralPath path, int x1, int y1, int x2, int y2)
     {
-        if (isLog) LOG.trace("quadTo: " + String.format(Locale.US, "%d, %d; %d, %d", x1, y1, x2, y2));
+        if (isLog) LOG.trace("quadTo: " + x1 + ", " + y2 + "; " + x2 + ", " + y2);
         path.quadTo(x1, y1, x2, y2);
     }
-    
-    
-    private static boolean isOnCurve(int flags)
-    {
-        return (flags & GlyfDescript.ON_CURVE) != 0;        
-    }
-
+        
 }

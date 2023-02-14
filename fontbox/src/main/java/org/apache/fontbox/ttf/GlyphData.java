@@ -18,7 +18,9 @@ package org.apache.fontbox.ttf;
 
 import java.awt.geom.GeneralPath;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.fontbox.util.BoundingBox;
@@ -36,7 +38,7 @@ public class GlyphData
     private short yMax;
     private BoundingBox boundingBox = null;
     private short numberOfContours;
-    private GlyfDescript glyphDescription = null;
+    private GlyphDescription glyphDescription = null;
     
     /**
      * This will read the required data from the stream.
@@ -46,7 +48,7 @@ public class GlyphData
      * @param leftSideBearing The left side bearing for this glyph.
      * @throws IOException If there is an error reading the data.
      */
-    void initData( GlyphTable glyphTable, TTFDataStream data, int gid, int leftSideBearing, Set<Integer> known) throws IOException
+    void initData( GlyphTable glyphTable, TTFDataStream data, int gid, int leftSideBearing, Map<Integer, GlyphDescription> known) throws IOException
     {
         numberOfContours = data.readSignedShort();
         xMin = data.readSignedShort();
@@ -64,9 +66,7 @@ public class GlyphData
         else 
         {
             // create a composite glyph
-            if ( known==null ) known = new HashSet<>();
-            known.add(gid);
-            glyphDescription = new GlyfCompositeDescript(data, glyphTable, known);
+            glyphDescription = new GlyfCompositeDescript(gid, data, glyphTable, known==null ? new HashMap<>() : known);
         }
     }
 

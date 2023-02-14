@@ -17,10 +17,7 @@
 package org.apache.fontbox.ttf;
 
 import java.io.IOException;
-import java.util.Set;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import java.util.Map;
 
 /**
  * A table in a true type font.
@@ -29,8 +26,6 @@ import org.apache.commons.logging.LogFactory;
  */
 public class GlyphTable extends TTFTable
 {
-    private static final Log LOG = LogFactory.getLog(GlyphTable.class);
-    
     /**
      * Tag to identify this table.
      */
@@ -172,7 +167,7 @@ public class GlyphTable extends TTFTable
     }
     
     
-    public GlyphData getGlyph(int gid, Set<Integer> known) throws IOException
+    public GlyphData getGlyph(int gid, Map<Integer, GlyphDescription> known) throws IOException
     {
         if (gid < 0 || gid >= numGlyphs)
         {
@@ -224,16 +219,11 @@ public class GlyphTable extends TTFTable
         }
     }
 
-    private GlyphData getGlyphData(int gid, Set<Integer> known) throws IOException
+    private GlyphData getGlyphData(int gid, Map<Integer, GlyphDescription> known) throws IOException
     {
         GlyphData glyph = new GlyphData();
-        if ( known!=null && known.contains(gid) ) {
-            LOG.error("Circular composite glyph reference " + gid);
-            glyph.initEmptyData();
-        } else {
-            int leftSideBearing = hmt == null ? 0 : hmt.getLeftSideBearing(gid);
-            glyph.initData(this, data, gid, leftSideBearing, known);
-        }
+        int leftSideBearing = hmt == null ? 0 : hmt.getLeftSideBearing(gid);
+        glyph.initData(this, data, gid, leftSideBearing, known);
         return glyph;
     }
 }
