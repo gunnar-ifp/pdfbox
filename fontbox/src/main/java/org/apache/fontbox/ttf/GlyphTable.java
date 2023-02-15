@@ -167,7 +167,7 @@ public class GlyphTable extends TTFTable
     }
     
     
-    public GlyphData getGlyph(int gid, Map<Integer, GlyphDescription> known) throws IOException
+    public GlyphData getGlyph(int gid, Map<Integer, GlyphDescription> compositeChain) throws IOException
     {
         if (gid < 0 || gid >= numGlyphs)
         {
@@ -203,7 +203,7 @@ public class GlyphTable extends TTFTable
 
                 data.seek(getOffset() + offsets[gid]);
 
-                glyph = getGlyphData(gid, known);
+                glyph = getGlyphData(gid, compositeChain);
 
                 // restore
                 data.seek(currentPosition);
@@ -219,11 +219,11 @@ public class GlyphTable extends TTFTable
         }
     }
 
-    private GlyphData getGlyphData(int gid, Map<Integer, GlyphDescription> known) throws IOException
+    private GlyphData getGlyphData(int gid, Map<Integer, GlyphDescription> compositeChain) throws IOException
     {
         GlyphData glyph = new GlyphData();
         int leftSideBearing = hmt == null ? 0 : hmt.getLeftSideBearing(gid);
-        glyph.initData(this, data, gid, leftSideBearing, known);
+        glyph.initData(this, data, gid, leftSideBearing, compositeChain);
         return glyph;
     }
 }

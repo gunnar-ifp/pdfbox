@@ -94,11 +94,6 @@ public class GlyphComponent
     
     protected final int flags;
     protected final int glyphIndex;
-    /** Offset of the referenced glyph's first point in parent glyph. */ 
-    protected final int offsetPoints;
-    /** Offset of the referenced glyph's first contour in parent glyph. */
-    protected final int offsetContours;
-    protected final GlyphDescription glyph;
     protected final float scaleX;
     protected final float scaleY;
     protected final float scale01;
@@ -112,6 +107,12 @@ public class GlyphComponent
 
     protected final short argument1;
     protected final short argument2;
+
+    /** Offset of the referenced glyph's first point in parent glyph. */ 
+    private int offsetPoints;
+    /** Offset of the referenced glyph's first contour in parent glyph. */
+    private int offsetContours;
+    private GlyphDescription glyph;
     
     /**
      * 0 = integer translation, 1 = simple scale + translation, 2 = affine transform, 3 = float translation
@@ -126,14 +127,10 @@ public class GlyphComponent
      * @param bais the stream to be read
      * @throws IOException is thrown if something went wrong
      */
-    GlyphComponent(int flags, int glyphIndex, GlyphDescription gd, int contourOffset, int pointOffset, TTFDataStream bais)
-        throws IOException
+    GlyphComponent(TTFDataStream bais) throws IOException
     {
-        this.flags = flags;
-        this.glyphIndex = glyphIndex;
-        this.glyph = gd;
-        this.offsetContours = contourOffset;
-        this.offsetPoints = pointOffset;
+        this.flags = bais.readSignedShort();
+        this.glyphIndex = bais.readUnsignedShort(); // number of glyph in a font is uint16
         
         // Get the arguments as just their raw values
         if ( hasFlag(ARG_1_AND_2_ARE_WORDS) )
@@ -225,6 +222,14 @@ public class GlyphComponent
         this.mode = scale==0 ? translate : scale;
     }
 
+    
+    void init(GlyphDescription gd, int contourOffset, int pointOffset)
+    {
+        glyph = gd;
+        offsetContours = contourOffset;
+        offsetPoints = pointOffset;
+    }
+    
 
     /**
      * Returns the offset of this glyph's first contour in the parent glyph's contour list.

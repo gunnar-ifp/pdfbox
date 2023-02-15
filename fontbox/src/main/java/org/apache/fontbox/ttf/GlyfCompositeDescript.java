@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,13 +58,27 @@ class GlyfCompositeDescript extends GlyphDescription
      */
     GlyfCompositeDescript(int gid, TTFDataStream bais, GlyphTable glyphTable, Map<Integer, GlyphDescription> glyphs) throws IOException
     {
-        glyphs.put(gid, this);
-        // Load all of the composite components and initialize counts
+        // Load all of the composite components
         final List<GlyphComponent> comps = new ArrayList<GlyphComponent>();
-        int contourOffset = 0, pointOffset = 0, flags;
+        GlyphComponent last;
         do {
-            flags = bais.readSignedShort();
-            final Integer index = bais.readUnsignedShort();// number of glyph in a font is uint16
+            last = new GlyphComponent(bais);
+            comps.add(last);
+        } 
+        while ( last.hasFlag(GlyphComponent.MORE_COMPONENTS) );
+
+        // Are there hinting instructions to read?
+        if ( last.hasFlag(GlyphComponent.WE_HAVE_INSTRUCTIONS) ) {
+            readInstructions(bais, (bais.readUnsignedShort()));
+        }
+
+        // Initialize components
+        if ( glyphs==null) glyphs = new HashMap<>();
+        glyphs.put(gid, this);
+        
+        int contourOffset = 0, pointOffset = 0;
+        for ( GlyphComponent c : comps ) {
+            final Integer index = c.getGlyphIndex();
             GlyphDescription gd = glyphs.get(index);
             if ( gd!=null && gd.isComposite() ) {
                 LOG.error("Circular composite glyph reference detected in glyph " + gid + " -> " + index);
@@ -85,20 +100,13 @@ class GlyfCompositeDescript extends GlyphDescription
                     LOG.error(e);
                 }
             }
-            comps.add(new GlyphComponent(flags, index, gd, contourOffset, pointOffset, bais));
+            c.init(gd, contourOffset, pointOffset);
             if ( gd!=null ) {
                 contourOffset += gd.getContourCount();
                 pointOffset   += gd.getPointCount();
             }
         } 
-        while ((flags & GlyphComponent.MORE_COMPONENTS) != 0);
-
-        // Are there hinting instructions to read?
-        if ((flags & GlyphComponent.WE_HAVE_INSTRUCTIONS) != 0)
-        {
-            readInstructions(bais, (bais.readUnsignedShort()));
-        }
-
+        
         this.components   = comps.toArray(new GlyphComponent[comps.size()]);
         this.contourCount = contourOffset;
         this.pointCount   = pointOffset;
