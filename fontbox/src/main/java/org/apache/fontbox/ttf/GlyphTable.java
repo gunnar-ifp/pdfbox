@@ -17,6 +17,7 @@
 package org.apache.fontbox.ttf;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * A table in a true type font.
@@ -139,7 +140,7 @@ public class GlyphTable extends TTFTable
                 {
                     ++cached;
                 }
-                glyphs[gid] = getGlyphData(gid);
+                glyphs[gid] = getGlyphData(gid, null);
             }
             initialized = true;
             return glyphs;
@@ -161,6 +162,12 @@ public class GlyphTable extends TTFTable
      * @throws IOException if the font cannot be read
      */
     public GlyphData getGlyph(int gid) throws IOException
+    {
+        return getGlyph(gid, null);
+    }
+    
+    
+    public GlyphData getGlyph(int gid, Map<Integer, GlyphDescription> compositeChain) throws IOException
     {
         if (gid < 0 || gid >= numGlyphs)
         {
@@ -196,7 +203,7 @@ public class GlyphTable extends TTFTable
 
                 data.seek(getOffset() + offsets[gid]);
 
-                glyph = getGlyphData(gid);
+                glyph = getGlyphData(gid, compositeChain);
 
                 // restore
                 data.seek(currentPosition);
@@ -212,16 +219,11 @@ public class GlyphTable extends TTFTable
         }
     }
 
-    private GlyphData getGlyphData(int gid) throws IOException
+    private GlyphData getGlyphData(int gid, Map<Integer, GlyphDescription> compositeChain) throws IOException
     {
         GlyphData glyph = new GlyphData();
         int leftSideBearing = hmt == null ? 0 : hmt.getLeftSideBearing(gid);
-        glyph.initData(this, data, leftSideBearing);
-        // resolve composite glyph
-        if (glyph.getDescription().isComposite())
-        {
-            glyph.getDescription().resolve();
-        }
+        glyph.initData(this, data, gid, leftSideBearing, compositeChain);
         return glyph;
     }
 }

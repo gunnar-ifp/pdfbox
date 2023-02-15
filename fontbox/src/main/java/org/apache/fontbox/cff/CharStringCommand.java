@@ -40,7 +40,28 @@ public class CharStringCommand
     public final static int TYPE2_CALL_LIMIT            = 10;
     public final static int TYPE2_STEM_HINT_LIMIT       = 96;
     public final static int TYPE2_TRANSIENT_ARRAY_LIMIT = 32;
+    public final static int CFF2_OPERAND_STACK_LIMIT    = 513;
+    public final static int CFF2_CALL_LIMIT             = 10;
+    public final static int CFF2_STEM_HINT_LIMIT        = 96;
 
+
+    @FunctionalInterface
+    public interface CommandConsumer<T extends Enum<T>>
+    {
+        void apply(T command, CharStringOperandStack operands) throws IOException;
+        
+        default void end() throws IOException {
+        }
+    }
+
+    
+    @FunctionalInterface
+    public interface CommandProvider<T extends Enum<T>>
+    {
+        void stream(CommandConsumer<T> consumer) throws IOException;
+    }
+    
+    
     
     /** Single byte command */
     public final static int
@@ -57,6 +78,8 @@ public class CharStringCommand
         ESCAPE          = 12,
         HSBW            = 13,
         ENDCHAR         = 14,
+        VSINDEX         = 15,
+        BLEND           = 16,
         HSTEMHM         = 18,
         HINTMASK        = 19,
         CNTRMASK        = 20,
@@ -211,42 +234,56 @@ public class CharStringCommand
          */
         CNTRMASK,
         
-        // Deprecated
+        /** Deprecated */
         DOTSECTION;
     }    
     
     
-    @FunctionalInterface
-    public interface Type1CommandConsumer
-    {
-        void apply(Type1Command command, CharStringOperandStack operands) throws IOException;
-    }
-
-
-    @FunctionalInterface
-    public interface Type1CommandProvider
-    {
-        void stream(Type1CommandConsumer consumer) throws IOException;
-    }
     
-    
-    @FunctionalInterface
-    public interface Type2CommandConsumer
+    /**
+     * Known CFF2 commands with any command handled by the parser omitted.
+     */
+    public enum CFF2Command
     {
-        void apply(Type2Command command, CharStringOperandStack operands, boolean firstCommand) throws IOException;
+        // Path construction operators
+        RMOVETO,
+        HMOVETO,
+        VMOVETO,
+        RLINETO,
+        HLINETO,
+        VLINETO,
+        RRCURVETO,
+        HHCURVETO,
+        HVCURVETO,
+        RCURVELINE,
+        RLINECURVE,
+        VHCURVETO,
+        VVCURVETO,
+        FLEX,
+        HFLEX,
+        HFLEX1,
+        FLEX1,
+
+        // Hint Operators
+        HSTEM,
+        VSTEM,
+        HSTEMHM,
+        VSTEMHM,
+        /**
+         * Note: Hintmask not supplied.<br>
+         * Note: Streamer will send VSTEM/VSTEMHM command if omitted in charstring, but given on stack
+         */
+        HINTMASK,
+        /**
+         * Note: Contourmask not supplied.<br>
+         * Note: Streamer will send VSTEM/VSTEMHM command if omitted in charstring, but given on stack
+         */
+        CNTRMASK,
         
-        default void apply(Type2Command command, CharStringOperandStack operands) throws IOException {
-            apply(command, operands, false);
-        }
-    }
+        VSINDEX,
+        BLEND;
+    }    
 
-    
-    @FunctionalInterface
-    public interface Type2CommandProvider
-    {
-        void stream(Type2CommandConsumer consumer) throws IOException;
-    }
-    
     
     /**
      * Full (internal) Type1 command set.
@@ -276,12 +313,12 @@ public class CharStringCommand
         VSTEM          (CharStringCommand.VSTEM,           2, false, false),
         VSTEM3         (CharStringCommand.VSTEM3,          6, false, true),
         // Arithmetic Command
-        DIV            (CharStringCommand.DIV,             2, true, true),
+        DIV            (CharStringCommand.DIV,             2, true,  true),
         // Subroutine Commands
-        CALLOTHERSUBR  (CharStringCommand.CALLOTHERSUBR,  -2, true, true),
-        CALLSUBR       (CharStringCommand.CALLSUBR,       -1, true, false),
-        POP            (CharStringCommand.POP,             0, true, true),
-        RETURN         (CharStringCommand.RETURN,          0, true, false),
+        CALLOTHERSUBR  (CharStringCommand.CALLOTHERSUBR,  -2, true,  true),
+        CALLSUBR       (CharStringCommand.CALLSUBR,       -1, true,  false),
+        POP            (CharStringCommand.POP,             0, true,  true),
+        RETURN         (CharStringCommand.RETURN,          0, true,  false),
         SETCURRENTPOINT(CharStringCommand.SETCURRENTPOINT, 2, false, true);
         
         private final int byte0, byte1, argCount;
@@ -385,7 +422,7 @@ public class CharStringCommand
         // Deprecated
         DOTSECTION     (CharStringCommand.DOTSECTION, true,  "0"),        
         
-        // Arithmetic Operators
+        // Arithmetic Operators (keep stack)
         ABS            (CharStringCommand.ABS,        true,  1),
         ADD            (CharStringCommand.ADD,        true,  2),
         SUB            (CharStringCommand.SUB,        true,  2),
@@ -400,18 +437,18 @@ public class CharStringCommand
         ROLL           (CharStringCommand.ROLL,       true,  2),
         DUP            (CharStringCommand.DUP,        true,  1),
 
-        // Storage Operators
+        // Storage Operators (keep stack)
         PUT            (CharStringCommand.PUT,        true,  2),
         GET            (CharStringCommand.GET,        true,  1),
 
-        // Conditional Operators
+        // Conditional Operators (keep stack)
         AND            (CharStringCommand.AND,        true,  2),
         OR             (CharStringCommand.OR,         true,  2),
         NOT            (CharStringCommand.NOT,        true,  1),
         EQ             (CharStringCommand.EQ,         true,  2),
         IFELSE         (CharStringCommand.IFELSE,     true,  4),
 
-        // Subroutine Operators
+        // Subroutine Operators (keep stack)
         CALLSUBR       (CharStringCommand.CALLSUBR,   false, 1),
         CALLGSUBR      (CharStringCommand.CALLGSUBR,  false, 1),
         RETURN         (CharStringCommand.RETURN,     false, 0);
@@ -420,14 +457,15 @@ public class CharStringCommand
         private final int[][][] ruleSets;
         private final int argCount;
         final boolean keepStack;
-        final Type2Command command = getEnum(Type2Command.class, name());
+        final Type2Command command;
         
         private Type2Operator(int b, boolean escaped, String rules) {
             this.byte0 = escaped ? ESCAPE : b;
             this.byte1 = escaped ? b      : 0;
-            this.ruleSets = parse(rules);
+            this.ruleSets = CharStringCommand.parse(rules);
             this.argCount = Arrays.stream(ruleSets).map(Arrays::stream).mapToInt(s -> s.mapToInt(r -> r[0] * r[1]).sum()).min().orElse(0);
             this.keepStack = false;
+            this.command = Type2Command.valueOf(name());
         }
 
         private Type2Operator(int b, boolean escaped, int argCount) {
@@ -436,6 +474,8 @@ public class CharStringCommand
             this.ruleSets = null;
             this.argCount = argCount;
             this.keepStack = true;
+            this.command = getEnum(Type2Command.class, name());
+            if ( command!=null ) throw new IllegalStateException(name() + " maps to Type2Command " + command);
         }
         
         public int getArgumentCount() {
@@ -445,7 +485,7 @@ public class CharStringCommand
         public boolean verify(int stackSize) {
             if ( ruleSets==null ) return stackSize>=argCount;
             for ( int[][] ruleSet : ruleSets ) {
-                if ( verify(ruleSet, 0, stackSize) ) return true;
+                if ( CharStringCommand.verify(ruleSet, 0, stackSize) ) return true;
             }
             return false;
         }
@@ -467,45 +507,6 @@ public class CharStringCommand
 
         // Simple operator stack verification system
         
-        private static int[][][] parse(String ruleSets) {
-            ruleSets = ruleSets.trim();
-            if ( ruleSets.isEmpty() ) return null;
-            final Pattern RULE = Pattern.compile("(\\d+)([+*?]?)([, \t\n]|$)");
-            return Arrays.stream(ruleSets.split("\\s*|\\s*"))
-                .map(RULE::matcher).map(Type2Operator::results).map(s -> s.map(Type2Operator::parse)
-                .toArray(int[][]::new)).toArray(int[][][]::new);
-        }
-        
-        private static int[] parse(MatchResult rule) {
-            int num = Integer.parseInt(rule.group(1));
-            switch (rule.group(2)) {
-                case "?": return new int[] { num, 0, 1 };
-                case "":  return new int[] { num, 1, 1 };
-                case "*": return new int[] { num, 0, Integer.MAX_VALUE };
-                case "+": return new int[] { num, 1, Integer.MAX_VALUE };
-            }
-            throw new IllegalArgumentException("Unknown rule: " + rule.group());            
-        }
-        
-        /** Verifies the operators on the stack by recursively permutating the rules against them. */ 
-        private static boolean verify(int[][] rules, int index, int size) {
-            final int[] rule = rules[index++];
-            final boolean last = index==rules.length;
-            final int num = rule[0];
-            for ( int count = rule[1], max = rule[2]; count<=max; count++ ) {
-                final int ns = size - count * num;
-                if ( ns<0 ) break;
-                if ( last && ns==0 || !last && ns>=0 && verify(rules, index, ns) ) return true;
-            }
-            return false;
-        }
-        
-        private static Stream<MatchResult> results(Matcher matcher) {
-            List<MatchResult> results = new ArrayList<>();
-            while ( matcher.find() ) results.add(matcher.toMatchResult());
-            return results.stream();
-        }
-        
         private final static Type2Operator[] TYPE2_SINGLE, TYPE2_DOUBLE;
         static {
             TYPE2_SINGLE = new Type2Operator[32];
@@ -515,5 +516,162 @@ public class CharStringCommand
             }
         }
     }
+
+    
+    /**
+     * Full (internal) CFF2 command set.
+     * 
+     * @see "https://learn.microsoft.com/en-us/typography/opentype/spec/cff2charstr"
+     */
+    enum CFF2Operator
+    {
+        // Path construction operators
+        RMOVETO        (CharStringCommand.RMOVETO,    false, "2"),
+        HMOVETO        (CharStringCommand.HMOVETO,    false, "1"),
+        VMOVETO        (CharStringCommand.VMOVETO,    false, "1"),
+        RLINETO        (CharStringCommand.RLINETO,    false, "2+"),
+        HLINETO        (CharStringCommand.HLINETO,    false, "1  2* | 2+"),
+        VLINETO        (CharStringCommand.VLINETO,    false, "1  2* | 2+"),
+        RRCURVETO      (CharStringCommand.RRCURVETO,  false, "6+"),
+        HHCURVETO      (CharStringCommand.HHCURVETO,  false, "1? 4+"),
+        HVCURVETO      (CharStringCommand.HVCURVETO,  false, "4  8* 1? | 8+ 1?"),
+        RCURVELINE     (CharStringCommand.RCURVELINE, false, "6+ 2"),
+        RLINECURVE     (CharStringCommand.RLINECURVE, false, "2+ 6"),
+        VHCURVETO      (CharStringCommand.VHCURVETO,  false, "4  8* 1? | 8+ 1?"),
+        VVCURVETO      (CharStringCommand.VVCURVETO,  false, "1? 4+"),
+        FLEX           (CharStringCommand.FLEX,       true,  "13"),
+        HFLEX          (CharStringCommand.HFLEX,      true,  "7"),
+        HFLEX1         (CharStringCommand.HFLEX1,     true,  "9"),
+        FLEX1          (CharStringCommand.FLEX1,      true,  "11"),
+
+        // Hint Operators
+        HSTEM          (CharStringCommand.HSTEM,      false, "2  2*"),
+        VSTEM          (CharStringCommand.VSTEM,      false, "2  2*"),
+        HSTEMHM        (CharStringCommand.HSTEMHM,    false, "2  2*"),
+        VSTEMHM        (CharStringCommand.VSTEMHM,    false, "2  2*"),
+        /** Note: Parser will send VSTEM/VSTEMHM command if omitted in charstring, but given on stack */
+        HINTMASK       (CharStringCommand.HINTMASK,   false, "0"),
+        /** Note: Parser will send VSTEM/VSTEMHM command if omitted in charstring, but given on stack */
+        CNTRMASK       (CharStringCommand.CNTRMASK,   false, "0"),
+
+        // Subroutine Operators (keep stack)
+        CALLSUBR       (CharStringCommand.CALLSUBR,   false, 1),
+        CALLGSUBR      (CharStringCommand.CALLGSUBR,  false, 1),
+
+        // Blend
+        VSINDEX        (CharStringCommand.VSINDEX,    false, "1"),
+        BLEND          (CharStringCommand.BLEND,      false, 1);
+        
+        
+        private final int byte0, byte1;
+        private final int[][][] ruleSets;
+        private final int argCount;
+        final boolean keepStack;
+        final CFF2Command command;
+        
+        private CFF2Operator(int b, boolean escaped, String rules) {
+            this.byte0 = escaped ? ESCAPE : b;
+            this.byte1 = escaped ? b      : 0;
+            this.ruleSets = CharStringCommand.parse(rules);
+            this.argCount = Arrays.stream(ruleSets).map(Arrays::stream).mapToInt(s -> s.mapToInt(r -> r[0] * r[1]).sum()).min().orElse(0);
+            this.keepStack = false;
+            this.command = CFF2Command.valueOf(name());
+        }
+
+        private CFF2Operator(int b, boolean escaped, int argCount) {
+            this.byte0 = escaped ? ESCAPE : b;
+            this.byte1 = escaped ? b      : 0;
+            this.ruleSets = null;
+            this.argCount = argCount;
+            this.keepStack = true;
+            this.command = getEnum(CFF2Command.class, name());
+        }
+        
+        public int getArgumentCount() {
+            return argCount;
+        }
+        
+        public boolean verify(int stackSize) {
+            if ( ruleSets==null ) return stackSize>=argCount;
+            for ( int[][] ruleSet : ruleSets ) {
+                if ( CharStringCommand.verify(ruleSet, 0, stackSize) ) return true;
+            }
+            return false;
+        }
+        
+        @Override
+        public String toString() {
+            return super.toString().toLowerCase(Locale.ROOT);
+        }
+        
+        public static CFF2Operator get(int b0) {
+            return b0<0 || b0>=CFF2_SINGLE.length ? null : CFF2_SINGLE[b0];
+        }
+    
+        public static CFF2Operator get(int byte0, int byte1) {
+            return byte0==ESCAPE
+                ? (byte1<0 || byte1>=CFF2_DOUBLE.length ? null : CFF2_DOUBLE[byte1])
+                : (byte0<0 || byte0>=CFF2_SINGLE.length ? null : CFF2_SINGLE[byte0]);
+        }
+
+        // Simple operator stack verification system
+        
+        private final static CFF2Operator[] CFF2_SINGLE, CFF2_DOUBLE;
+        static {
+            CFF2_SINGLE = new CFF2Operator[32];
+            CFF2_DOUBLE = new CFF2Operator[38];
+            for ( CFF2Operator w : values() ) {
+                if ( w.byte0!=ESCAPE ) CFF2_SINGLE[w.byte0] = w; else CFF2_DOUBLE[w.byte1] = w;
+            }
+        }
+    }
+
+    
+    /** Verifies the operators on the stack by recursively permutating the rules against them. */ 
+    private static boolean verify(int[][] rules, int index, int size)
+    {
+        final int[] rule = rules[index++];
+        final boolean last = index==rules.length;
+        final int num = rule[0];
+        for ( int count = rule[1], max = rule[2]; count<=max; count++ ) {
+            final int ns = size - count * num;
+            if ( ns<0 ) break;
+            if ( last && ns==0 || !last && ns>=0 && verify(rules, index, ns) ) return true;
+        }
+        return false;
+    }
+    
+    
+    private static int[][][] parse(String ruleSets)
+    {
+        ruleSets = ruleSets.trim();
+        if ( ruleSets.isEmpty() ) return null;
+        final Pattern RULE = Pattern.compile("(\\d+)([+*?]?)([, \t\n]|$)");
+        return Arrays.stream(ruleSets.split("\\s*|\\s*"))
+            .map(RULE::matcher).map(CharStringCommand::results).map(s -> s.map(CharStringCommand::parse)
+            .toArray(int[][]::new)).toArray(int[][][]::new);
+    }
+    
+    
+    private static int[] parse(MatchResult rule)
+    {
+        int num = Integer.parseInt(rule.group(1));
+        switch (rule.group(2)) {
+            case "?": return new int[] { num, 0, 1 };
+            case "":  return new int[] { num, 1, 1 };
+            case "*": return new int[] { num, 0, Integer.MAX_VALUE };
+            case "+": return new int[] { num, 1, Integer.MAX_VALUE };
+        }
+        throw new IllegalArgumentException("Unknown rule: " + rule.group());            
+    }
+    
+    
+    private static Stream<MatchResult> results(Matcher matcher)
+    {
+        List<MatchResult> results = new ArrayList<>();
+        while ( matcher.find() ) results.add(matcher.toMatchResult());
+        return results.stream();
+    }
+    
     
 }

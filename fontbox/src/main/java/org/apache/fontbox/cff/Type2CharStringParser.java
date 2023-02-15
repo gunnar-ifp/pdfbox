@@ -27,13 +27,13 @@ import java.util.Objects;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.cff.CharStringCommand.CommandConsumer;
+import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
 import org.apache.fontbox.cff.CharStringCommand.Type2Command;
-import org.apache.fontbox.cff.CharStringCommand.Type2CommandConsumer;
-import org.apache.fontbox.cff.CharStringCommand.Type2CommandProvider;
 import org.apache.fontbox.cff.CharStringCommand.Type2Operator;
 
 /**
- * Parses a binary type1 charstring command stream
+ * Parses a binary Type2 charstring command stream
  * and sends individual commands to a consumer.
  * <p>
  * It also:
@@ -68,7 +68,7 @@ import org.apache.fontbox.cff.CharStringCommand.Type2Operator;
  * @author Villu Ruusmann
  * @author Gunnar Brand
  */
-public final class Type2CharStringParser implements Type2CommandProvider
+public final class Type2CharStringParser implements CommandProvider<Type2Command>
 {
     private static final Log LOG = LogFactory.getLog(Type2CharStringParser.class);
 
@@ -77,10 +77,9 @@ public final class Type2CharStringParser implements Type2CommandProvider
     private final byte[] bytes;
     private final byte[][] subrs;
     private final byte[][] gsubrs;
-    private final CharStringOperandStack stack = new CharStringOperandStack(TYPE2_OPERAND_STACK_LIMIT / 2);
     private final double[] data = new double[TYPE2_TRANSIENT_ARRAY_LIMIT];
+    private final CharStringOperandStack stack = new CharStringOperandStack(TYPE2_OPERAND_STACK_LIMIT / 2);
     private int hstemCount = 0, vstemCount = -1;
-    private boolean isFirstCommand = false;
 
 
     /**
@@ -113,19 +112,18 @@ public final class Type2CharStringParser implements Type2CommandProvider
      * @throws IOException if an error occurs during reading
      */
     @Override
-    public void stream(Type2CommandConsumer consumer) throws IOException
+    public void stream(CommandConsumer<Type2Command> consumer) throws IOException
     {
+//        System.out.println("\n############## " + glyphName);
         Objects.nonNull(consumer);
         parse(new DataInput(bytes), consumer, 0);
+        consumer.end();
     }
     
     
-    private void parse(DataInput input, Type2CommandConsumer consumer, int depth) throws IOException
+    private void parse(DataInput input, CommandConsumer<Type2Command> consumer, int depth) throws IOException
     {
         if ( depth>TYPE2_CALL_LIMIT ) throw new IOException(message("Type2 call limit exceeded"));
-        if ( depth==0 ) isFirstCommand = true;
-
-//        System.out.println("\n############## " + glyphName);
         
         while (input.hasRemaining()) {
             if ( stack.size()>TYPE2_OPERAND_STACK_LIMIT * 2 ) throw new IOException(message("Type2 stack limit exceeded"));
@@ -180,7 +178,7 @@ public final class Type2CharStringParser implements Type2CommandProvider
             if ( stack.size() < operator.getArgumentCount() ) {
                 //LOG.warn(message(command, "Missing or wrong number of operands, have " + stack.size() + ", need (at least) " + command.getArgumentCount()));
                 LOG.warn(message(operator, "Missing operands, have " + stack.size() + ", need (at least) " + operator.getArgumentCount()));
-                if ( !operator.keepStack ) clearStack();
+                if ( !operator.keepStack ) stack.clear();
                 continue;
             }
 
@@ -194,14 +192,77 @@ public final class Type2CharStringParser implements Type2CommandProvider
                     case ENDCHAR:
                         if ( depth==0 ) {
                             if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of charstring"));
-                            consumer.apply(Type2Command.ENDCHAR, stack, isFirstCommand);
+                            consumer.apply(Type2Command.ENDCHAR, stack);
                         } else {
                             if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of subroutine"));
-                            consumer.apply(Type2Command.ENDCHAR, stack, isFirstCommand);
+                            consumer.apply(Type2Command.ENDCHAR, stack);
                             return;
                         }
                         break;
 
+                    // The Type 2 charstring format supports six hint operators:
+                    // hstem, vstem, hstemhm, vstemhm, hintmask, and cntrmask.
+                    // The hint information must be declared at the beginning of a charstring
+                    // (see section 3.1) using the hstem, hstemhm, vstem, and vstemhm operators.
+                    case HSTEM:
+                    case HSTEMHM:
+                        hstemCount += stack.size() / 2;
+                        consumer.apply(operator.command, stack);
+                        break;
+                        
+                    case VSTEM:
+                    case VSTEMHM:
+                        if ( vstemCount<0 ) vstemCount = 0;
+                        vstemCount += stack.size() / 2;
+                        consumer.apply(operator.command, stack);
+                        break;
+                    
+                    case CNTRMASK:
+                        // If hstem and vstem hints are both declared at the beginning of a charstring,
+                        // and this sequence is followed directly by the hintmask or cntrmask operators,
+                        // the vstem hint operator need not be included.
+                        // Ed: can only be true for first mask occurence, obviously!
+                        boolean emulatevstem = vstemCount<0;
+                        if ( emulatevstem ) vstemCount = stack.size() / 2;
+                        // The number of data bytes must be exactly the number needed
+                        // to represent the number of stems in the original stem list
+                        // (those stems specified by the hstem, vstem, hstemhm, or vstemhm commands),
+                        // using one bit in the data bytes for each stem in the original stem list.
+                        if ( hstemCount + vstemCount > CharStringCommand.TYPE2_STEM_HINT_LIMIT ) {
+                            LOG.warn(message(operator, "Stem hint limit exceeded: " + (hstemCount + vstemCount)));
+                        }
+                        for ( int c = (hstemCount + vstemCount + 7) / 8; c>0; c-- ) input.readUnsignedByte();
+                        if ( emulatevstem ) {
+                            Type2Command c = input.peekUnsignedByte(0)==CharStringCommand.HINTMASK ? Type2Command.VSTEMHM : Type2Command.VSTEM;
+                            consumer.apply(c, stack);
+                            stack.clear();
+                        }
+                        consumer.apply(Type2Command.CNTRMASK, stack);
+                        break;
+
+                    case HINTMASK:
+                        if ( vstemCount<0 ) {
+                            vstemCount = stack.size() / 2;
+                            consumer.apply(Type2Command.VSTEMHM, stack);
+                            stack.clear();
+                        }
+                        if ( hstemCount + vstemCount > CharStringCommand.TYPE2_STEM_HINT_LIMIT ) {
+                            LOG.warn(message(operator, "Stem hint limit exceeded: " + (hstemCount + vstemCount)));
+                        }
+                        for ( int c = (hstemCount + vstemCount + 7) / 8; c>0; c-- ) input.readUnsignedByte();
+                        consumer.apply(Type2Command.HINTMASK, stack);
+                        break;
+
+                    case RMOVETO:
+                    case HMOVETO:
+                    case VMOVETO:
+                        consumer.apply(operator.command, stack);
+                        break;
+
+
+                    ///////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+                    // Locally handled operations. They all keep the stack
+                        
                     case RETURN:
                         if ( depth==0 ) {
                             if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of charstring"));
@@ -233,64 +294,6 @@ public final class Type2CharStringParser implements Type2CommandProvider
                         }
                         break;
                         
-                    // The Type 2 charstring format supports six hint operators:
-                    // hstem, vstem, hstemhm, vstemhm, hintmask, and cntrmask.
-                    // The hint information must be declared at the beginning of a charstring
-                    // (see section 3.1) using the hstem, hstemhm, vstem, and vstemhm operators.
-                    case HSTEM:
-                    case HSTEMHM:
-                        hstemCount += stack.size() / 2;
-                        consumer.apply(operator.command, stack, isFirstCommand);
-                        break;
-                        
-                    case VSTEM:
-                    case VSTEMHM:
-                        if ( vstemCount<0 ) vstemCount = 0;
-                        vstemCount += stack.size() / 2;
-                        consumer.apply(operator.command, stack, isFirstCommand);
-                        break;
-                    
-                    case CNTRMASK:
-                        // If hstem and vstem hints are both declared at the beginning of a charstring,
-                        // and this sequence is followed directly by the hintmask or cntrmask operators,
-                        // the vstem hint operator need not be included.
-                        // Ed: can only be true for first mask occurence, obviously!
-                        boolean emulatevstem = vstemCount<0;
-                        if ( emulatevstem ) vstemCount = stack.size() / 2;
-                        // The number of data bytes must be exactly the number needed
-                        // to represent the number of stems in the original stem list
-                        // (those stems specified by the hstem, vstem, hstemhm, or vstemhm commands),
-                        // using one bit in the data bytes for each stem in the original stem list.
-                        if ( hstemCount + vstemCount > CharStringCommand.TYPE2_STEM_HINT_LIMIT ) {
-                            LOG.warn(message(operator, "Stem hint limit exceeded: " + (hstemCount + vstemCount)));
-                        }
-                        for ( int c = (hstemCount + vstemCount + 7) / 8; c>0; c-- ) input.readUnsignedByte();
-                        if ( emulatevstem ) {
-                            Type2Command c = input.peekUnsignedByte(0)==CharStringCommand.HINTMASK ? Type2Command.VSTEMHM : Type2Command.VSTEM;
-                            consumer.apply(c, stack, isFirstCommand);
-                            clearStack();
-                        }
-                        consumer.apply(Type2Command.CNTRMASK, stack, isFirstCommand);
-                        break;
-
-                    case HINTMASK:
-                        if ( vstemCount<0 ) {
-                            vstemCount = stack.size() / 2;
-                            consumer.apply(Type2Command.VSTEMHM, stack, isFirstCommand);
-                            clearStack();
-                        }
-                        if ( hstemCount + vstemCount > CharStringCommand.TYPE2_STEM_HINT_LIMIT ) {
-                            LOG.warn(message(operator, "Stem hint limit exceeded: " + (hstemCount + vstemCount)));
-                        }
-                        for ( int c = (hstemCount + vstemCount + 7) / 8; c>0; c-- ) input.readUnsignedByte();
-                        consumer.apply(Type2Command.HINTMASK, stack, isFirstCommand);
-                        break;
-
-                    case RMOVETO:
-                    case HMOVETO:
-                    case VMOVETO:
-                        consumer.apply(operator.command, stack, isFirstCommand);
-                        break;
 
                     case ABS:
                         stack.push(Math.abs(stack.pop()));
@@ -395,15 +398,20 @@ public final class Type2CharStringParser implements Type2CommandProvider
                         }
                         break;
 
+                        
                     default:
-                        if ( operator.command!=null ) consumer.apply(operator.command, stack);
+                        if ( operator.command==null ) {
+                            LOG.warn(message(operator, "Unhandled internal Type2 operator!"));
+                        } else {
+                            consumer.apply(operator.command, stack);
+                        }
                 }
             }
             catch (IllegalArgumentException | IndexOutOfBoundsException e) {
                 LOG.warn(message(operator, e.getMessage()));
             }
             finally {
-                if ( !operator.keepStack ) clearStack();
+                if ( !operator.keepStack ) stack.clear();
             }
         }
 
@@ -411,13 +419,6 @@ public final class Type2CharStringParser implements Type2CommandProvider
     }
       
  
-    private void clearStack()
-    {
-        stack.clear();
-        isFirstCommand = false;
-    }
-
-    
     private String message(String prefix)
     {
         return Type1CharStringParser.message(fontName, glyphName, prefix);

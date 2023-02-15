@@ -16,8 +16,9 @@
  */
 package org.apache.fontbox.cff;
 
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandProvider;
-import org.apache.fontbox.cff.CharStringCommand.Type2CommandProvider;
+import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
+import org.apache.fontbox.cff.CharStringCommand.Type1Command;
+import org.apache.fontbox.cff.CharStringCommand.Type2Command;
 import org.apache.fontbox.type1.Type1CharStringReader;
 
 /**
@@ -39,7 +40,7 @@ public class Type2CharString extends Type1CharString
      * @param glyphName glyph name (or CID as hex string)
      * @param gid GID
      * @param defaultWidthX default width
-     * @param nomWidthX nominal width
+     * @param nominalWidthX nominal width
      */
     public Type2CharString(Type1CharStringReader font, String fontName, String glyphName, int gid,
         byte[] bytes, byte[][] subrs, byte[][] gsubrs, int defaultWidthX, int nominalWidthX)
@@ -60,13 +61,13 @@ public class Type2CharString extends Type1CharString
     }
 
     @Override
-    public Type1CommandProvider getType1Stream()
+    public CommandProvider<Type1Command> getType1Stream()
     {
         return consumer -> getType2Stream().stream(new Type2ToType1Converter(defaultWidthX, nominalWidthX, consumer));
     }
 
     
-    public Type2CommandProvider getType2Stream()
+    public CommandProvider<Type2Command> getType2Stream()
     {
         return new Type2CharStringParser(fontName, glyphName, bytes, subrs, gsubrs);
     }

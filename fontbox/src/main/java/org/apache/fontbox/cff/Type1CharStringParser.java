@@ -27,9 +27,9 @@ import java.util.Objects;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.cff.CharStringCommand.CommandConsumer;
+import org.apache.fontbox.cff.CharStringCommand.CommandProvider;
 import org.apache.fontbox.cff.CharStringCommand.Type1Command;
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandConsumer;
-import org.apache.fontbox.cff.CharStringCommand.Type1CommandProvider;
 import org.apache.fontbox.cff.CharStringCommand.Type1Operator;
 
 /**
@@ -55,7 +55,7 @@ import org.apache.fontbox.cff.CharStringCommand.Type1Operator;
  * @author John Hewson
  * @author Gunnar Brand
  */
-public final class Type1CharStringParser implements Type1CommandProvider
+public final class Type1CharStringParser implements CommandProvider<Type1Command>
 {
     private static final Log LOG = LogFactory.getLog(Type1CharStringParser.class);
 
@@ -90,14 +90,15 @@ public final class Type1CharStringParser implements Type1CommandProvider
      * @throws IOException if an error occurs during reading
      */
     @Override
-    public void stream(Type1CommandConsumer consumer) throws IOException
+    public void stream(CommandConsumer<Type1Command> consumer) throws IOException
     {
         Objects.nonNull(consumer);
         parse(new DataInput(bytes), consumer, 0);
+        consumer.end();
     }
 
 
-    private void parse(DataInput input, Type1CommandConsumer consumer, int depth) throws IOException
+    private void parse(DataInput input, CommandConsumer<Type1Command> consumer, int depth) throws IOException
     {
         // TODO: if depth!=0, only allow relative charstring commands
 
@@ -254,7 +255,11 @@ public final class Type1CharStringParser implements Type1CommandProvider
                         
                         
                     default:
-                        if ( operator.command!=null ) consumer.apply(operator.command, stack);
+                        if ( operator.command==null ) {
+                            LOG.warn(message(operator, "Unhandled Type1 operator!"));
+                        } else {
+                            consumer.apply(operator.command, stack);
+                        }
                 }
             }
             catch (IllegalArgumentException | IndexOutOfBoundsException e) {

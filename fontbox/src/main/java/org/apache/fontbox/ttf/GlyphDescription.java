@@ -18,6 +18,9 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.io.IOException;
+import java.util.List;
+
 /**
  * Specifies access to glyph description classes, simple and composite.
  * 
@@ -25,61 +28,148 @@ package org.apache.fontbox.ttf;
  * see http://xmlgraphics.apache.org/batik/ for further details.
  * 
  */
-public interface GlyphDescription 
+public abstract class GlyphDescription 
 {
-    /** 
-     * Returns the index of the ending point of the given contour.
+    public final static boolean HINTING_ENABLED = Boolean.getBoolean("org.apache.fontbox.ttf.GlyfDescript.enable-hinting");
+    
+
+    // Flags describing a coordinate of a glyph.
+    /**
+     * if set, the point is on the curve.
+     */
+    protected static final byte ON_CURVE = 0x01;
+    /**
+     * if set, the x-coordinate is 1 byte long.
+     */
+    protected static final byte X_SHORT_VECTOR = 0x02;
+    /**
+     * if set, the y-coordinate is 1 byte long.
+     */
+    protected static final byte Y_SHORT_VECTOR = 0x04;
+    /**
+     * if set, the next byte specifies the number of additional 
+     * times this set of flags is to be repeated.
+     */
+    protected static final byte REPEAT = 0x08;
+    /**
+     * This flag as two meanings, depending on how the
+     * x-short vector flags is set.
+     * If the x-short vector is set, this bit describes the sign
+     * of the value, with 1 equaling positive and 0 negative.
+     * If the x-short vector is not set and this bit is also not
+     * set, the current x-coordinate is a signed 16-bit delta vector.
+     */
+    protected static final byte X_DUAL = 0x10;
+    /**
+     * This flag as two meanings, depending on how the
+     * y-short vector flags is set.
+     * If the y-short vector is set, this bit describes the sign
+     * of the value, with 1 equaling positive and 0 negative.
+     * If the y-short vector is not set and this bit is also not
+     * set, the current y-coordinate is a signed 16-bit delta vector.
+     */
+    protected static final byte Y_DUAL = 0x20;
+
+    
+    private int[] instructions;
+
+    
+    /**
+     * Constructor.
      * 
-     * @param i the number of the contour
-     * @return the index of the ending point of the given contour
+     * @param numberOfContours the number of contours
+     * @param bais the stream to be read
+     * @throws IOException is thrown if something went wrong
      */
-    int getEndPtOfContours(int i);
-    
-    /**
-     * Returns the flags of the given point. To decode these bit flags, use the static elements of
-     * {@link GlyfDescript}. See also "Outline flags" in
-     * <a href="https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html">The
-     * 'glyf' table</a> in the TrueType Reference Manual.
-     *
-     * @param i the given point
-     * @return the flags value for the given point
-     */
-    byte getFlags(int i);
-    
-    /**
-     * Returns the x coordinate of the given point.
-     * @param i the given point
-     * @return the x coordinate value for the given point
-     */
-    short getXCoordinate(int i);
+    GlyphDescription() 
+    {
+    }
+
 
     /**
-     * Returns the y coordinate of the given point.
-     * @param i the given point
-     * @return the y coordinate value for the given point
+     * Read the hinting instructions.
+     * @param bais the stream to be read
+     * @param count the number of instructions to be read 
+     * @throws IOException is thrown if something went wrong
      */
-    short getYCoordinate(int i);
-
+    void readInstructions(TTFDataStream bais, int count) throws IOException
+    {
+        if ( !HINTING_ENABLED ) {
+            bais.seek(bais.getCurrentPosition() + count);
+            count = 0;
+        }
+        instructions = bais.readUnsignedByteArray(count);
+    }
+    
+    
+    /**
+     * Returns the hinting instructions (if enabled via {@link #HINTING_ENABLED}).
+     * @return an array containing the hinting instructions.
+     */
+    public int[] getInstructions() 
+    {
+        return instructions;
+    }
+    
+    
     /**
      * Returns whether this point is a composite or not.
-     * @return true if this point is a composite
      */
-    boolean isComposite();
+    public abstract boolean isComposite();
+ 
+
+    /**
+     * Returns the number of components.
+     */
+    public abstract int getComponentCount();
+
+    
+    /**
+     * Returns a read-only list of all components in a composite glyph,
+     * an empty list if not a composite glyph.
+     */
+    public abstract List<GlyphComponent> getComponents();
+    
+
+    /**
+     * Returns the number of contours.
+     */
+    public abstract int getContourCount(); 
+
     
     /**
      * Returns the number of points.
-     * @return the number of points
      */
-    int getPointCount();
+    public abstract int getPointCount();
+
+    
+    /** 
+     * Returns the index of the ending point of the given contour.
+     * 
+     * @param contour the number of the contour
+     * @return the index of the ending point of the given contour
+     */
+    public abstract int getEndPtOfContours(int contour);
+    
     
     /**
-     * Returns the number of contours.
-     * @return the number of contours
+     * Returns {@code true} if the point is on the curve, {@code false} otherwise.
+     * @param index the given point
      */
-    int getContourCount();
+    public abstract boolean isOnCurve(int index);
+    
     
     /**
-     * Resolve all parts of an composite glyph.
+     * Returns the x coordinate of the given point.
+     * @param index the given point
      */
-    void resolve(); 
+    public abstract int getXCoordinate(int index);
+
+    
+    /**
+     * Returns the y coordinate of the given point.
+     * @param index the given point
+     */
+    public abstract int getYCoordinate(int index);
+
 }

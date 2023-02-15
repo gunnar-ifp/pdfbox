@@ -16,208 +16,130 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.awt.geom.GeneralPath;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import java.awt.geom.GeneralPath;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
 /**
  * This class provides a glyph to GeneralPath conversion for true type fonts.
- * Based on code from Apache Batik, a subproject of Apache XMLGraphics.
- *
- * @see
- * <a href="http://xmlgraphics.apache.org/batik">http://xmlgraphics.apache.org/batik</a>
+ * <p>
+ * Originally based on code from <a href="http://xmlgraphics.apache.org/batik">Apache Batik</a>, a subproject of Apache XMLGraphics.<br>
+ * Contour rendering ported from 
+ * <a href="https://github.com/mozilla/pdf.js/blob/c0d17013a28ee7aa048831560b6494a26c52360c/src/core/font_renderer.js">
+ * PDF.js project, viewed on 14.2.2015, rev 2e97c0d, pdf.js/src/core/font_renderer.js</a><br>
+ * <p>
  * 
- * Contour rendering ported from PDF.js, viewed on 14.2.2015, rev 2e97c0d
- *
- * @see
- * <a href="https://github.com/mozilla/pdf.js/blob/c0d17013a28ee7aa048831560b6494a26c52360c/src/core/font_renderer.js">pdf.js/src/core/font_renderer.js</a>
- *
  */
-class GlyphRenderer
+final class GlyphRenderer
 {
     private static final Log LOG = LogFactory.getLog(GlyphRenderer.class);
 
-    private final boolean isDebug = LOG.isDebugEnabled();
-    private final GlyphDescription glyphDescription;
-
-    GlyphRenderer(GlyphDescription glyphDescription)
-    {
-        this.glyphDescription = glyphDescription;
-    }
-
     /**
      * Returns the path of the glyph.
-     * @return the path
      */
-    public GeneralPath getPath()
+    public static GeneralPath getPath(GlyphDescription glyphDescription)
     {
-        Point[] points = describe(glyphDescription);
-        return calculatePath(points);
-    }
+        final boolean isLog = LOG.isTraceEnabled();
+        final GeneralPath path = new GeneralPath();
+        final int pointCount = glyphDescription.getPointCount();
+        int contour = 0;
+        for ( int contourStart = 0; contourStart<pointCount; ) {
+            final int contourEnd = glyphDescription.getEndPtOfContours(contour++);
+            // make sure start and end are on curve:
+            // use variable start and end points (end is inclusive), end can be larger than contourEnd.
+            // extra joining point at start and end of curve possible (if idx==start and/or end > contourEnd).
+            final int start, end;
+            final int joinX, joinY;
+            if (  glyphDescription.isOnCurve(contourStart) ) {
+                // first point is on curve: start normal, end with joiner = first point
+                joinX = glyphDescription.getXCoordinate(contourStart);
+                joinY = glyphDescription.getYCoordinate(contourStart);
+                start = contourStart + 1;
+                end   = contourEnd   + 1;
+            }
+            else if ( glyphDescription.isOnCurve(contourEnd) ) {
+                // first is off-curve point, try using last point
+                // start with joiner = last point, end normal
+                joinX = glyphDescription.getXCoordinate(contourEnd);
+                joinY = glyphDescription.getYCoordinate(contourEnd);
+                start = contourStart;
+                end   = contourEnd;
+            }
+            else {
+                // start and end are off-curve points, creating implicit one as extra start and end point
+                // start with joiner = middle between start and end, end with the same
+                // Math: a + (b - a) / 2 = (2a + b - a) / 2 = (a + b) / 2 
+                joinX = (glyphDescription.getXCoordinate(contourStart) + glyphDescription.getXCoordinate(contourEnd)) / 2;
+                joinY = (glyphDescription.getYCoordinate(contourStart) + glyphDescription.getYCoordinate(contourEnd)) / 2;
+                start = contourStart;
+                end   = contourEnd + 1;
+            }
+            
+            // render contour, if idx reaches end, we always use the join point.
+            moveTo(isLog, path, joinX, joinY);
+            ONCURVE:
+            for ( int idx = start; idx<=end; idx++ ) {
+                if ( idx==end ) {
+                    lineTo(isLog, path, joinX, joinY);
+                    continue;
+                }
 
-    /**
-     * Set the points of a glyph from the GlyphDescription.
-     */
-    private Point[] describe(GlyphDescription gd)
-    {
-        int endPtIndex = 0;
-        int endPtOfContourIndex = -1;
-        Point[] points = new Point[gd.getPointCount()];
-        for (int i = 0; i < points.length; i++)
-        {
-            if (endPtOfContourIndex == -1)
-            {
-                endPtOfContourIndex = gd.getEndPtOfContours(endPtIndex);
-            }
-            boolean endPt = endPtOfContourIndex == i;
-            if (endPt)
-            {
-                endPtIndex++;
-                endPtOfContourIndex = -1;
-            }
-            points[i] = new Point(gd.getXCoordinate(i), gd.getYCoordinate(i),
-                    (gd.getFlags(i) & GlyfDescript.ON_CURVE) != 0, endPt);
-        }
-        return points;
-    }
+                int x1 = glyphDescription.getXCoordinate(idx);
+                int y1 = glyphDescription.getYCoordinate(idx);
+                
+                if ( glyphDescription.isOnCurve(idx) ) {
+                    lineTo(isLog, path, x1, y1);
+                    continue;
+                }
 
-    /**
-     * Use the given points to calculate a GeneralPath.
-     *
-     * @param points the points to be used to generate the GeneralPath
-     *
-     * @return the calculated GeneralPath
-     */
-    private GeneralPath calculatePath(Point[] points)
-    {
-        GeneralPath path = new GeneralPath();
-        int start = 0;
-        for (int p = 0, len = points.length; p < len; ++p)
-        {
-            if (points[p].endOfContour)
-            {
-                Point firstPoint = points[start];
-                Point lastPoint = points[p];
-                List<Point> contour = new ArrayList<Point>();
-                for (int q = start; q <= p; ++q)
-                {
-                    contour.add(points[q]);
-                }
-                if (points[start].onCurve)
-                {
-                    // using start point at the contour end
-                    contour.add(firstPoint);
-                }
-                else if (points[p].onCurve)
-                {
-                    // first is off-curve point, trying to use one from the end
-                    contour.add(0, lastPoint);
-                }
-                else
-                {
-                    // start and end are off-curve points, creating implicit one
-                    Point pmid = midValue(firstPoint, lastPoint);
-                    contour.add(0, pmid);
-                    contour.add(pmid);
-                }
-                moveTo(path, contour.get(0));
-                for (int j = 1, clen = contour.size(); j < clen; j++)
-                {
-                    Point pnow = contour.get(j);
-                    if (pnow.onCurve)
-                    {
-                        lineTo(path, pnow);
+                // see: http://www.fifi.org/doc/libttf2/docs/glyphs.htm
+                // off curve "loop": two neighboring off curve control points points max 
+                while ( ++idx<=end ) {
+                    if ( idx==end ) {
+                        quadTo(isLog, path, x1, y1, joinX, joinY);
+                        continue ONCURVE;
                     }
-                    else if (contour.get(j + 1).onCurve)
-                    {
-                        quadTo(path, pnow, contour.get(j + 1));
-                        ++j;
+                    else if ( glyphDescription.isOnCurve(idx) ) {
+                        int x2 = glyphDescription.getXCoordinate(idx);
+                        int y2 = glyphDescription.getYCoordinate(idx);
+                        quadTo(isLog, path, x1, y1, x2, y2);
+                        continue ONCURVE;
                     }
-                    else
-                    {
-                        quadTo(path, pnow, midValue(pnow, contour.get(j + 1)));
+                    else {
+                        int x2 = glyphDescription.getXCoordinate(idx);
+                        int y2 = glyphDescription.getYCoordinate(idx);
+                        quadTo(isLog, path, x1, y1, (x1 + x2) / 2, (y1 + y2) / 2);
+                        x1 = x2;
+                        y1 = y2;
                     }
                 }
-                path.closePath();            
-                start = p + 1;
             }
+            path.closePath();            
+            contourStart = contourEnd + 1;
         }
         return path;
     }
 
-    private void moveTo(GeneralPath path, Point point)
-    {
-        path.moveTo(point.x, point.y);
-        if (isDebug)
-        {
-            LOG.trace("moveTo: " + String.format(Locale.US, "%d,%d", point.x, point.y));
-        }
-    }
-
-    private void lineTo(GeneralPath path, Point point)
-    {
-        path.lineTo(point.x, point.y);
-        if (isDebug)
-        {
-            LOG.trace("lineTo: " + String.format(Locale.US, "%d,%d", point.x, point.y));
-        }
-    }
-
-    private void quadTo(GeneralPath path, Point ctrlPoint, Point point)
-    {
-        path.quadTo(ctrlPoint.x, ctrlPoint.y, point.x, point.y);
-        if (isDebug)
-        {
-            LOG.trace("quadTo: " + String.format(Locale.US, "%d,%d %d,%d", ctrlPoint.x, ctrlPoint.y,
-                    point.x, point.y));
-        }
-    }
-
-    private int midValue(int a, int b)
-    {
-        return a + (b - a) / 2;
-    }
-
-    // this creates an onCurve point that is between point1 and point2
-    private Point midValue(Point point1, Point point2)
-    {
-        return new Point(midValue(point1.x, point2.x), midValue(point1.y, point2.y));
-    }
-
-    /**
-     * This class represents one point of a glyph.
-     */
-    private static class Point
-    {
-        private int x = 0;
-        private int y = 0;
-        private boolean onCurve = true;
-        private boolean endOfContour = false;
-
-        Point(int xValue, int yValue, boolean onCurveValue, boolean endOfContourValue)
-        {
-            x = xValue;
-            y = yValue;
-            onCurve = onCurveValue;
-            endOfContour = endOfContourValue;
-        }
-
-        // this constructs an on-curve, non-endofcountour point
-        Point(int xValue, int yValue)
-        {
-            this(xValue, yValue, true, false);
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.format(Locale.US, "Point(%d,%d,%s,%s)", x, y, onCurve ? "onCurve" : "",
-                    endOfContour ? "endOfContour" : "");
-        }
-    }
     
+    private static void moveTo(boolean isLog, GeneralPath path, int x, int y)
+    {
+        if (isLog) LOG.trace("moveTo: " + x + ", " + y);
+        path.moveTo(x, y);
+    }
+
+    
+    private static void lineTo(boolean isLog, GeneralPath path, int x, int y)
+    {
+        if (isLog) LOG.trace("lineTo: " + x + ", " + y);
+        path.lineTo(x, y);
+    }
+
+
+    private static void quadTo(boolean isLog, GeneralPath path, int x1, int y1, int x2, int y2)
+    {
+        if (isLog) LOG.trace("quadTo: " + x1 + ", " + y2 + "; " + x2 + ", " + y2);
+        path.quadTo(x1, y1, x2, y2);
+    }
+        
 }

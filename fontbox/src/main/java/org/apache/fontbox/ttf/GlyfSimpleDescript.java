@@ -19,26 +19,27 @@
 package org.apache.fontbox.ttf;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
  * This class is based on code from Apache Batik a subproject of Apache XMLGraphics. see
  * http://xmlgraphics.apache.org/batik/ for further details.
+ * 
+ * @see "https://learn.microsoft.com/en-us/typography/opentype/spec/glyf"
  */
-public class GlyfSimpleDescript extends GlyfDescript
+class GlyfSimpleDescript extends GlyphDescription
 {
-
-    /**
-     * Log instance.
-     */
     private static final Log LOG = LogFactory.getLog(GlyfSimpleDescript.class);
 
-    private int[] endPtsOfContours;
-    private byte[] flags;
-    private short[] xCoordinates;
-    private short[] yCoordinates;
+    private final int contourCount;
     private final int pointCount;
+    private final int[] contourEnds;
+    private final int[] onCurveFlag;
+    private final int[] coordinates;
 
     /**
      * Constructor for an empty description.
@@ -47,10 +48,10 @@ public class GlyfSimpleDescript extends GlyfDescript
      */
     GlyfSimpleDescript() throws IOException
     {
-        super((short) 0, null);
-        pointCount = 0;
+        this((short)0, null, (short)0);
     }
 
+    
     /**
      * Constructor.
      * 
@@ -61,172 +62,159 @@ public class GlyfSimpleDescript extends GlyfDescript
      */
     GlyfSimpleDescript(short numberOfContours, TTFDataStream bais, short x0) throws IOException
     {
-        super(numberOfContours, bais);
-
         /*
          * https://developer.apple.com/fonts/TTRefMan/RM06/Chap6glyf.html
          * "If a glyph has zero contours, it need not have any glyph data." set the pointCount to zero to initialize
          * attributes and avoid nullpointer but maybe there shouldn't have GlyphDescript in the GlyphData?
          */
-        if (numberOfContours == 0)
-        {
-            pointCount = 0;
-            return;
-        }
-
-        // Simple glyph description
-        endPtsOfContours = bais.readUnsignedShortArray(numberOfContours);
-
-        int lastEndPt = endPtsOfContours[numberOfContours - 1];
-        if (numberOfContours == 1 && lastEndPt == 65535)
-        {
+        if (numberOfContours > 0) {
+            // Simple glyph description
+            int[] temp = bais.readUnsignedShortArray(numberOfContours);
+            final int lastEndPt = temp[numberOfContours - 1];
+            
             // PDFBOX-2939: assume an empty glyph
-            pointCount = 0;
-            return;
+            if ( !(numberOfContours == 1 && lastEndPt == 65535) ) {
+                super.readInstructions(bais, bais.readUnsignedShort());
+
+                this.contourCount = numberOfContours;
+                this.pointCount  = lastEndPt + 1;
+                this.contourEnds = temp;
+                this.onCurveFlag = new int[(pointCount + 31) / 32];
+                this.coordinates = new int[pointCount];
+        
+                byte[] flags = readFlags(bais, pointCount);
+                readCoords(bais, flags, x0);
+                for ( int i = 0; i<pointCount; i++ ) {
+                    if ( (flags[i] & ON_CURVE)!=0 ) onCurveFlag[i >>> 5] |= 1 << (i & 31);
+                }
+                return;
+            }
         }
-        // The last end point index reveals the total number of points
-        pointCount = lastEndPt + 1;
-
-        flags = new byte[pointCount];
-        xCoordinates = new short[pointCount];
-        yCoordinates = new short[pointCount];
-
-        int instructionCount = bais.readUnsignedShort();
-        readInstructions(bais, instructionCount);
-        readFlags(pointCount, bais);
-        readCoords(pointCount, bais, x0);
+        this.contourCount = 0;
+        this.pointCount = 0;
+        this.contourEnds = null;
+        this.onCurveFlag = null;
+        this.coordinates = null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int getEndPtOfContours(int i)
-    {
-        return endPtsOfContours[i];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public byte getFlags(int i)
-    {
-        return flags[i];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public short getXCoordinate(int i)
-    {
-        return xCoordinates[i];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public short getYCoordinate(int i)
-    {
-        return yCoordinates[i];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
+    
     @Override
     public boolean isComposite()
     {
         return false;
     }
+    
+    
+    @Override
+    public int getComponentCount()
+    {
+        return 0;
+    }
+    
+    
+    @Override
+    public List<GlyphComponent> getComponents()
+    {
+        return Collections.emptyList();
+    }
 
-    /**
-     * {@inheritDoc}
-     */
+    
+    @Override
+    public int getContourCount() 
+    {
+        return contourCount;
+    }
+    
+
     @Override
     public int getPointCount()
     {
         return pointCount;
     }
 
+    
+    @Override
+    public int getEndPtOfContours(int contour)
+    {
+        return contourEnds[contour];
+    }
+
+
+    @Override
+    public boolean isOnCurve(int index)
+    {
+        return (onCurveFlag[index >> 5] & (1 << (index & 31))) != 0;
+    }
+
+
+    @Override
+    public int getXCoordinate(int index)
+    {
+        return (short)coordinates[index];
+    }
+
+
+    @Override
+    public int getYCoordinate(int index)
+    {
+        return (short)(coordinates[index] >> 16);
+    }
+
+
     /**
      * The table is stored as relative values, but we'll store them as absolutes.
      */
-    private void readCoords(int count, TTFDataStream bais, short x0) throws IOException
+    private void readCoords(TTFDataStream bais, byte[] flags, int x) throws IOException
     {
-        short x = x0;
-        short y = 0;
-        for (int i = 0; i < count; i++)
+        int y = 0;
+        for (int i = 0; i < coordinates.length; i++)
         {
-            if ((flags[i] & X_DUAL) != 0)
+            if ((flags[i] & X_SHORT_VECTOR) == 0)
             {
-                if ((flags[i] & X_SHORT_VECTOR) != 0)
-                {
-                    x += (short) bais.readUnsignedByte();
-                }
+                if ( (flags[i] & X_DUAL) == 0) x += bais.readSignedShort();
             }
             else
             {
-                if ((flags[i] & X_SHORT_VECTOR) != 0)
-                {
-                    x -= (short) bais.readUnsignedByte();
-                }
-                else
-                {
-                    x += bais.readSignedShort();
-                }
+                int sx = bais.readUnsignedByte();
+                x += (flags[i] & X_DUAL) == 0 ? -sx : sx;
             }
-            xCoordinates[i] = x;
+            coordinates[i] = 0xffff & x;
         }
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < coordinates.length; i++)
         {
-            if ((flags[i] & Y_DUAL) != 0)
+            if ((flags[i] & Y_SHORT_VECTOR) == 0)
             {
-                if ((flags[i] & Y_SHORT_VECTOR) != 0)
-                {
-                    y += (short) bais.readUnsignedByte();
-                }
+                if ((flags[i] & Y_DUAL) == 0) y += bais.readSignedShort();
             }
             else
             {
-                if ((flags[i] & Y_SHORT_VECTOR) != 0)
-                {
-                    y -= (short) bais.readUnsignedByte();
-                }
-                else
-                {
-                    y += bais.readSignedShort();
-                }
+                int sy = bais.readUnsignedByte();
+                y += (flags[i] & Y_DUAL) == 0 ? -sy : sy;
             }
-            yCoordinates[i] = y;
+            coordinates[i] |= y << 16;
         }
     }
 
+    
     /**
      * The flags are run-length encoded.
      */
-    private void readFlags(int flagCount, TTFDataStream bais) throws IOException
+    private static byte[] readFlags(TTFDataStream bais, int flagCount) throws IOException
     {
-        for (int index = 0; index < flagCount; index++)
-        {
-            flags[index] = (byte) bais.readUnsignedByte();
-            if ((flags[index] & REPEAT) != 0)
-            {
+        byte[] flags = new byte[flagCount];
+        for (int index = 0; index < flagCount; index++) {
+            final byte flag = (byte) bais.readUnsignedByte();
+            flags[index] = flag;
+            
+            if ((flag & REPEAT) != 0) {
                 int repeats = bais.readUnsignedByte();
-                for (int i = 1; i <= repeats; i++)
-                {
-                    if (index + i >= flags.length)
-                    {
-                        LOG.error("repeat count (" + repeats + ") higher than remaining space");
-                        return;
-                    }
-                    flags[index + i] = flags[index];
+                while ( --repeats >= 0 && ++index < flagCount ) flags[index] = flag;
+                if ( repeats > 0 || index == flagCount ) {
+                    LOG.error("repeat count (" + repeats + ") higher than remaining space");
                 }
-                index += repeats;
             }
         }
+        return flags;
     }
 }
