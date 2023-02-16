@@ -31,18 +31,19 @@ import org.apache.commons.logging.LogFactory;
  * <p>
  * 
  */
-final class GlyphRenderer
+class GlyphRenderer
 {
     private static final Log LOG = LogFactory.getLog(GlyphRenderer.class);
-
+    
+    final static GlyphRenderer DEFAULT = new GlyphRenderer();
+    
     
     /**
      * Returns the path of the glyph.
      */
-    public static GeneralPath getPath(GlyphDescription glyphDescription)
+    GeneralPath render(GlyphDescription glyphDescription, GeneralPath path)
     {
         final boolean isLog = LOG.isTraceEnabled();
-        final GeneralPath path = new GeneralPath();
         final int pointCount = glyphDescription.getPointCount();
         int contour = 0;
         for ( int contourStart = 0; contourStart<pointCount; ) {
@@ -123,24 +124,24 @@ final class GlyphRenderer
     }
 
     
-    private static void moveTo(boolean isLog, GeneralPath path, int x, int y)
+    void moveTo(boolean isLog, GeneralPath path, int x, int y)
     {
         if (isLog) LOG.trace("moveTo: " + x + ", " + y);
         path.moveTo(x, y);
     }
 
     
-    private static void lineTo(boolean isLog, GeneralPath path, int x, int y)
+    void lineTo(boolean isLog, GeneralPath path, int x, int y)
     {
         if (isLog) LOG.trace("lineTo: " + x + ", " + y);
         path.lineTo(x, y);
     }
 
 
-    private static void quadTo(boolean isLog, GeneralPath path, int x1, int y1, int x2, int y2)
+    void quadTo(boolean isLog, GeneralPath path, int x1, int y1, int x2, int y2)
     {
         if (isLog) LOG.trace("quadTo: " + x1 + ", " + y2 + "; " + x2 + ", " + y2);
         path.quadTo(x1, y1, x2, y2);
     }
-        
+
 }

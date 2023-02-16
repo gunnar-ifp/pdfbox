@@ -125,7 +125,7 @@ public class GlyphData
      */
     public GeneralPath getPath()
     {
-        return GlyphRenderer.getPath(glyphDescription);
+        return glyphDescription.getPath();
     }
 
     /**

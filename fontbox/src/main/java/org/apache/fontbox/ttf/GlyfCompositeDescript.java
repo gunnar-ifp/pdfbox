@@ -18,6 +18,7 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.awt.geom.GeneralPath;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -201,6 +202,15 @@ class GlyfCompositeDescript extends GlyphDescription
         return 0;
     }
 
+
+    @Override
+    public GeneralPath getPath()
+    {
+        GeneralPath path = new GeneralPath();
+        for ( GlyphComponent c : components ) c.render(path);
+        return path;
+    }
+    
 
     private GlyphComponent lookupCompositeCompContour(int contour)
     {

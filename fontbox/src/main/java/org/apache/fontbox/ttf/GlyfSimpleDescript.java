@@ -18,6 +18,7 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.awt.geom.GeneralPath;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -157,7 +158,14 @@ class GlyfSimpleDescript extends GlyphDescription
     @Override
     public int getYCoordinate(int index)
     {
-        return (short)(coordinates[index] >> 16);
+        return coordinates[index] >> 16;
+    }
+
+    
+    @Override
+    public GeneralPath getPath()
+    {
+        return GlyphRenderer.DEFAULT.render(this, new GeneralPath());
     }
 
 

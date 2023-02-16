@@ -18,6 +18,7 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.awt.geom.GeneralPath;
 import java.io.IOException;
 import java.util.List;
 
@@ -28,7 +29,7 @@ import java.util.List;
  * see http://xmlgraphics.apache.org/batik/ for further details.
  * 
  */
-public abstract class GlyphDescription 
+public abstract class GlyphDescription
 {
     public final static boolean HINTING_ENABLED = Boolean.getBoolean("org.apache.fontbox.ttf.GlyfDescript.enable-hinting");
     
@@ -172,4 +173,7 @@ public abstract class GlyphDescription
      */
     public abstract int getYCoordinate(int index);
 
+    
+    public abstract GeneralPath getPath();
+    
 }

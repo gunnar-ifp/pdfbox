@@ -18,6 +18,7 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.awt.geom.GeneralPath;
 import java.io.IOException;
 
 /**
@@ -26,7 +27,7 @@ import java.io.IOException;
  * 
  * @see "https://learn.microsoft.com/en-us/typography/opentype/spec/glyf"
  */
-public class GlyphComponent
+public class GlyphComponent extends GlyphRenderer
 {
     private static final float F2_14 = 1f / 0x4000;
 
@@ -225,12 +226,12 @@ public class GlyphComponent
     
     void init(GlyphDescription gd, int contourOffset, int pointOffset)
     {
-        glyph = gd;
-        offsetContours = contourOffset;
-        offsetPoints = pointOffset;
+        this.glyph = gd;
+        this.offsetContours = contourOffset;
+        this.offsetPoints = pointOffset;
     }
-    
 
+    
     /**
      * Returns the offset of this glyph's first contour in the parent glyph's contour list.
      */
@@ -258,6 +259,12 @@ public class GlyphComponent
     }
     
 
+    public int[] getInstructions()
+    {
+        return glyph.getInstructions();
+    }
+
+    
     /**
      * Returns argument 1.
      */
@@ -393,5 +400,38 @@ public class GlyphComponent
             case 3: return Math.round(translateYf + y);
         }
     }
+
+
+    public GeneralPath getPath()
+    {
+        return render(new GeneralPath());
+    }
     
+    
+    GeneralPath render(GeneralPath path)
+    {
+        return glyph==null ? path : super.render(glyph, path);
+    }
+
+    
+    @Override
+    void moveTo(boolean isLog, GeneralPath path, int x, int y)
+    {
+        super.moveTo(isLog, path, transformX(x, y), transformY(x, y));
+    }
+
+    
+    @Override
+    void lineTo(boolean isLog, GeneralPath path, int x, int y)
+    {
+        super.lineTo(isLog, path, transformX(x, y), transformY(x, y));
+    }
+
+    
+    @Override
+    void quadTo(boolean isLog, GeneralPath path, int x1, int y1, int x2, int y2)
+    {
+        super.quadTo(isLog, path, transformX(x1, y1), transformY(x1, y1), transformX(x2, y2), transformY(x2, y2));
+    }
+ 
 }
