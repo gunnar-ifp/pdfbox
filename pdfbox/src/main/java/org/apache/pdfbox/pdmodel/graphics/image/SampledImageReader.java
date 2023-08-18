@@ -49,8 +49,8 @@ final class SampledImageReader
 {
     private static final Log LOG = LogFactory.getLog(SampledImageReader.class);
     
-    private final static long SHIFT = 0x0000040810204081L; // bits set: 0, 7, 14, 21, 28, 35, 42
-    private final static long MASK  = 0x0001010101010101L; // bits set: 0, 8, 16, 24, 32, 40, 48
+    private final static long SHIFT = 0x8040201008040201L; // scatter source 8 bits in 9 bit increments
+    private final static long MASK  = 0x0101010101010101L;
     
     
     private SampledImageReader()
@@ -462,8 +462,7 @@ final class SampledImageReader
                     int count = Math.min(8 - (x & 7), endX - x);
                     if ( count==8 && buf!=null )
                     {
-                        long value = buff[r] ^ invert;
-                        buf.putLong(idx, ((value & 0x7f) * SHIFT & MASK) * 0xff | value >> 7 << 56);
+                        buf.putLong(idx, Long.reverseBytes((((((buff[r] ^ invert) & 0xff) * SHIFT) >>> 7) & MASK) * 0xff));
                         idx += 8;
                         x   += 8;
                     }
