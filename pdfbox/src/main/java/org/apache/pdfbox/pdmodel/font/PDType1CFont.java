@@ -35,6 +35,7 @@ import org.apache.fontbox.cff.CFFType1Font;
 import org.apache.fontbox.util.BoundingBox;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.encoding.Encoding;
@@ -74,49 +75,59 @@ public class PDType1CFont extends PDSimpleFont
      */
     public PDType1CFont(COSDictionary fontDictionary) throws IOException
     {
+        this(fontDictionary, null);
+    }
+
+
+    public PDType1CFont(COSDictionary fontDictionary, ResourceCache cache) throws IOException
+    {
         super(fontDictionary);
 
+        CFFType1Font cffEmbedded = null;
+        boolean fontIsDamaged = false;
+
         PDFontDescriptor fd = getFontDescriptor();
-        byte[] bytes = null;
         if (fd != null)
         {
             PDStream ff3Stream = fd.getFontFile3();
-            if (ff3Stream != null)
-            {
-                bytes = ff3Stream.toByteArray();
-                if (bytes.length == 0)
-                {
-                    LOG.error("Invalid data for embedded Type1C font " + getName());
-                    bytes = null;
-                }
+            if ( ff3Stream != null && cache != null ) {
+                cffEmbedded = (CFFType1Font)cache.getBaseFont(ff3Stream);
             }
-        }
-
-        boolean fontIsDamaged = false;
-        CFFType1Font cffEmbedded = null;
-        try
-        {
-            if (bytes != null)
+            
+            if ( ff3Stream != null && cffEmbedded == null )
             {
-                // note: this could be an OpenType file, fortunately CFFParser can handle that
-                CFFParser cffParser = new CFFParser();
-                CFFFont parsedCffFont = cffParser.parse(bytes, new FF3ByteSource()).get(0);
-                if (parsedCffFont instanceof CFFType1Font)
+                try
                 {
-                    cffEmbedded = (CFFType1Font) parsedCffFont;
+                    byte[] bytes = ff3Stream.toByteArray();
+                    if (bytes.length == 0)
+                    {
+                        LOG.error("Invalid data for embedded Type1C font " + getName());
+                    }
+                    else 
+                    {
+                        // note: this could be an OpenType file, fortunately CFFParser can handle that
+                        CFFParser cffParser = new CFFParser();
+                        CFFFont parsedCffFont = cffParser.parse(bytes, new FF3ByteSource()).get(0);
+                        if (parsedCffFont instanceof CFFType1Font)
+                        {
+                            cffEmbedded = (CFFType1Font) parsedCffFont;
+                            if ( cache!=null ) cache.put(ff3Stream, cffEmbedded);
+                        }
+                        else
+                        {
+                            LOG.error("Expected CFFType1Font, got " + parsedCffFont.getClass().getSimpleName());
+                            fontIsDamaged = true;
+                        }
+                    }
                 }
-                else
+                catch (IOException e)
                 {
-                    LOG.error("Expected CFFType1Font, got " + parsedCffFont.getClass().getSimpleName());
+                    LOG.error("Can't read the embedded Type1C font " + getName(), e);
                     fontIsDamaged = true;
                 }
             }
         }
-        catch (IOException e)
-        {
-            LOG.error("Can't read the embedded Type1C font " + getName(), e);
-            fontIsDamaged = true;
-        }
+
         isDamaged = fontIsDamaged;
         cffFont = cffEmbedded;
 

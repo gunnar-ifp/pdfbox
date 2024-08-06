@@ -19,6 +19,7 @@ package org.apache.fontbox.ttf;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -108,6 +109,11 @@ public class TTFParser
     public TrueTypeFont parse(InputStream inputStream) throws IOException
     {
         return parse(new MemoryTTFDataStream(inputStream));
+    }
+
+    public TrueTypeFont parse(byte[] data) throws IOException
+    {
+        return parse(new MemoryTTFDataStream(data));
     }
 
     /**

@@ -72,6 +72,12 @@ public final class OTFParser extends TTFParser
     {
         return (OpenTypeFont)super.parse(data);
     }
+    
+    @Override
+    public OpenTypeFont parse(byte[] data) throws IOException
+    {
+        return (OpenTypeFont)super.parse(data);
+    }
 
     @Override
     OpenTypeFont parse(TTFDataStream raf) throws IOException

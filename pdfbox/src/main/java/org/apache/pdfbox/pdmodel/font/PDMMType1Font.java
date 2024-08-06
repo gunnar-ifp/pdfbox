@@ -17,6 +17,7 @@
 package org.apache.pdfbox.pdmodel.font;
 
 import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 
 import java.io.IOException;
 
@@ -36,4 +37,11 @@ public class PDMMType1Font extends PDType1Font
     {
         super(fontDictionary);
     }
+    
+    
+    public PDMMType1Font(COSDictionary fontDictionary, ResourceCache cache) throws IOException
+    {
+        super(fontDictionary, cache);
+    }
+    
 }

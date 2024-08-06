@@ -37,6 +37,7 @@ import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.encoding.Encoding;
@@ -207,6 +208,12 @@ public class PDType1Font extends PDSimpleFont
      */
     public PDType1Font(COSDictionary fontDictionary) throws IOException
     {
+    	this(fontDictionary, null);
+    }
+    
+    
+    public PDType1Font(COSDictionary fontDictionary, ResourceCache cache) throws IOException
+    {
         super(fontDictionary);
         codeToBytesMap = new HashMap<Integer,byte[]>();
 
@@ -216,15 +223,18 @@ public class PDType1Font extends PDSimpleFont
         if (fd != null)
         {
             // a Type1 font may contain a Type1C font
-            PDStream fontFile3 = fd.getFontFile3();
-            if (fontFile3 != null)
+            if (fd.getFontFile3() != null)
             {
                 LOG.warn("/FontFile3 for Type1 font not supported");
             }
 
             // or it may contain a PFB
             PDStream fontFile = fd.getFontFile();
-            if (fontFile != null)
+            if ( fontFile != null && cache != null ) {
+                t1 = (Type1Font)cache.getBaseFont(fontFile);
+            }
+
+            if ( fontFile != null && t1 == null )
             {
                 try
                 {
@@ -263,6 +273,7 @@ public class PDType1Font extends PDSimpleFont
                             t1 = Type1Font.createWithSegments(segment1, segment2);
                         }
                     }
+                    if ( cache!=null ) cache.put(fontFile, t1);
                 }
                 catch (DamagedFontException e)
                 {

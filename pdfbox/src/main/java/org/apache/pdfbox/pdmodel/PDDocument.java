@@ -159,7 +159,7 @@ public class PDDocument implements Closeable
     private SigningSupport signingSupport;
 
     // document-wide cached resources
-    private ResourceCache resourceCache = new DefaultResourceCache();
+    private ResourceCache resourceCache = new LimitedResourceCache();
 
     // to make sure only one signature is added
     private boolean signatureAdded = false;
@@ -1591,7 +1591,8 @@ public class PDDocument implements Closeable
             // - first Exception is kept
             // - all IO resources are closed
             // - there's a way to see which errors occurred
-
+            if ( resourceCache!=null ) resourceCache.clear();
+            
             IOException firstException = null;
 
             // close resources and COSWriter

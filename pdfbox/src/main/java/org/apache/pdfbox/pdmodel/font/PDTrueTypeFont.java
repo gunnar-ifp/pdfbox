@@ -34,8 +34,8 @@ import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.fontbox.util.BoundingBox;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.encoding.BuiltInEncoding;
@@ -182,29 +182,36 @@ public class PDTrueTypeFont extends PDSimpleFont implements PDVectorFont
      */
     public PDTrueTypeFont(COSDictionary fontDictionary) throws IOException
     {
+    	this(fontDictionary, null);
+    }
+    
+    
+    public PDTrueTypeFont(COSDictionary fontDictionary, ResourceCache cache) throws IOException
+    {
         super(fontDictionary);
 
         TrueTypeFont ttfFont = null;
         boolean fontIsDamaged = false;
         if (getFontDescriptor() != null)
         {
-            PDFontDescriptor fd = super.getFontDescriptor();
-            PDStream ff2Stream = fd.getFontFile2();
+            PDStream ff2Stream = getFontDescriptor().getFontFile2();
             if (ff2Stream != null)
             {
-                InputStream is = null;
-                try
-                {
-                    // embedded
-                    TTFParser ttfParser = new TTFParser(true);
-                    is = ff2Stream.createInputStream();
-                    ttfFont = ttfParser.parse(is);
+                if ( cache != null ) {
+                    ttfFont = (TrueTypeFont)cache.getBaseFont(ff2Stream);
                 }
-                catch (IOException e)
-                {
-                    LOG.warn("Could not read embedded TTF for font " + getBaseFont(), e);
-                    fontIsDamaged = true;
-                    IOUtils.closeQuietly(is);
+
+                if ( ttfFont == null ) {
+                    try
+                    {
+                        ttfFont = new TTFParser(true).parse(ff2Stream.toByteArray());
+                        if ( cache!=null ) cache.put(ff2Stream, ttfFont);
+                    }
+                    catch (IOException e)
+                    {
+                        LOG.warn("Could not read embedded TTF for font " + getBaseFont(), e);
+                        fontIsDamaged = true;
+                    }
                 }
             }
         }

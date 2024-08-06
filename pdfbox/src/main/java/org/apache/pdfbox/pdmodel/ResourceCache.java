@@ -18,7 +18,10 @@
 package org.apache.pdfbox.pdmodel;
 
 import java.io.IOException;
+
+import org.apache.fontbox.FontBoxFont;
 import org.apache.pdfbox.cos.COSObject;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.documentinterchange.markedcontent.PDPropertyList;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.graphics.PDXObject;
@@ -34,6 +37,20 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
  */
 public interface ResourceCache
 {
+    default void clear()
+    {
+    }
+    
+    
+    default void startPage(Object pageId)
+    {
+    }
+    
+    default void endPage()
+    {
+    }
+    
+    
     /**
      * Returns the font resource for the given indirect object, if it is in the cache.
      * 
@@ -43,6 +60,11 @@ public interface ResourceCache
      * @throws IOException if something went wrong.
      */
     PDFont getFont(COSObject indirect) throws IOException;
+
+    default FontBoxFont getBaseFont(PDStream stream) throws IOException
+    {
+        return null;
+    }
 
     /**
      * Returns the color space resource for the given indirect object, if it is in the cache.
@@ -112,6 +134,10 @@ public interface ResourceCache
      */
     void put(COSObject indirect, PDFont font) throws IOException;
 
+    default void put(PDStream stream, FontBoxFont basefont) throws IOException
+    {
+    }
+    
     /**
      * Puts the given indirect color space resource in the cache.
      * 
@@ -167,4 +193,5 @@ public interface ResourceCache
      * @throws IOException if something went wrong.
      */
     void put(COSObject indirect, PDXObject xobject) throws IOException;
+    
 }

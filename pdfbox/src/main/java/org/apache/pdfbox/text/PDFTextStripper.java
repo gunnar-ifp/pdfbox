@@ -44,6 +44,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
 import org.apache.pdfbox.pdmodel.interactive.pagenavigation.PDThreadBead;
@@ -438,7 +439,8 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
     }
 
     /**
-     * Start a new page. Default implementation is to do nothing. Subclasses may provide additional information.
+     * Start a new page. Default implementation {@link ResourceCache#startPage(Object)} frees resources}.
+     * Subclasses may provide additional information.
      *
      * @param page The page we are about to process.
      *
@@ -446,11 +448,12 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     protected void startPage(PDPage page) throws IOException
     {
-        // default is to do nothing
+        if ( document.getResourceCache() != null ) document.getResourceCache().startPage(page);
     }
 
     /**
-     * End a page. Default implementation is to do nothing. Subclasses may provide additional information.
+     * End a page. The default implementation {@link ResourceCache#endPage() frees resources}.
+     * Subclasses may provide additional information.
      *
      * @param page The page we are about to process.
      *
@@ -458,7 +461,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     protected void endPage(PDPage page) throws IOException
     {
-        // default is to do nothing
+        if ( document.getResourceCache() != null ) document.getResourceCache().endPage();
     }
 
     private static final float END_OF_LAST_TEXT_X_RESET_VALUE = -1;

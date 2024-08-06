@@ -17,11 +17,11 @@
 package org.apache.fontbox.ttf;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.fontbox.util.OpenByteArrayOutputStream;
 /**
  * An interface into a data stream.
  * 
@@ -30,9 +30,9 @@ import java.io.InputStream;
  */
 class MemoryTTFDataStream extends TTFDataStream 
 {
-    private byte[] data = null;
     private int currentPosition = 0;
     
+    /**
     /**
      * Constructor from a stream. 
      * @param is The stream to read from. It will be closed by this method.
@@ -40,7 +40,6 @@ class MemoryTTFDataStream extends TTFDataStream
      */
     MemoryTTFDataStream( InputStream is ) throws IOException
     {
-        try
         {
             ByteArrayOutputStream output = new ByteArrayOutputStream( is.available() );
             byte[] buffer = new byte[1024];

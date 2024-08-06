@@ -485,19 +485,7 @@ public class PDStream implements COSObjectable
      */
     public byte[] toByteArray() throws IOException
     {
-        InputStream is = null;
-        try
-        {
-            is = createInputStream();
-            return IOUtils.toByteArray(is);
-        } 
-        finally
-        {
-            if (is != null)
-            {
-                is.close();
-            }
-        }
+        return stream.toByteArray();
     }
     
     /**
