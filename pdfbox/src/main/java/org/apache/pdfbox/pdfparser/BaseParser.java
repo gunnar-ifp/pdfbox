@@ -135,13 +135,6 @@ public abstract class BaseParser
         this.seqSource = pdfSource;
     }
 
-    private static boolean isHexDigit(char ch)
-    {
-        return isDigit(ch) ||
-        (ch >= 'a' && ch <= 'f') ||
-        (ch >= 'A' && ch <= 'F');
-    }
-
     /**
      * This will parse a PDF dictionary value.
      *
@@ -725,15 +718,7 @@ public abstract class BaseParser
                 // valid hex digits.
                 if (isHexDigit((char)ch1) && isHexDigit((char)ch2))
                 {
-                    String hex = Character.toString((char) ch1) + (char) ch2;
-                    try
-                    {
-                        buffer.write(Integer.parseInt(hex, 16));
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        throw new IOException("Error: expected hex digit, actual='" + hex + "'", e);
-                    }
+                    buffer.write(Character.digit((char)ch1, 16) << 4 | Character.digit((char)ch2, 16));
                     c = seqSource.read();
                 }
                 else
@@ -1202,6 +1187,11 @@ public abstract class BaseParser
     protected static boolean isDigit(int c)
     {
         return c >= ASCII_ZERO && c <= ASCII_NINE;
+    }
+
+    private static boolean isHexDigit(char ch)
+    {
+        return isDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
     }
 
     /**
