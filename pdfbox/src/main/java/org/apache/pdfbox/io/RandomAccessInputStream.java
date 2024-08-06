@@ -34,6 +34,7 @@ public class RandomAccessInputStream extends InputStream
 
     private final RandomAccessRead input;
     private long position;
+    private boolean close;
 
     /**
      * Creates a new RandomAccessInputStream, with a position of zero. The InputStream will maintain
@@ -47,6 +48,21 @@ public class RandomAccessInputStream extends InputStream
         position = 0;
     }
 
+    public RandomAccessInputStream(RandomAccessRead randomAccessRead, boolean close)
+    {
+        this.input = randomAccessRead;
+        this.close = close;
+    }
+    
+    @Override
+    public void close() throws IOException
+    {
+        if ( close ) {
+            close = false;
+            input.close();
+        }
+    }
+    
     void restorePosition() throws IOException
     {
         input.seek(position);
