@@ -33,6 +33,7 @@ import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.type1.DamagedFontException;
 import org.apache.fontbox.type1.Type1Font;
 import org.apache.fontbox.util.BoundingBox;
+import org.apache.fontbox.util.Bytes;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
@@ -471,7 +472,7 @@ public class PDType1Font extends PDSimpleFont
                     String.format("U+%04X ('%s') is not available in the font %s (generic: %s), encoding: %s",
                             unicode, name, getName(), genericFont.getName(), encoding.getEncodingName()));
         }
-        bytes = new byte[] { (byte)code };
+        bytes = Bytes.ofByte(code);
         codeToBytesMap.put(unicode, bytes);
         return bytes;
     }
