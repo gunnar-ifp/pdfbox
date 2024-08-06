@@ -21,6 +21,7 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.pdfbox.util.Charsets;
 import org.apache.pdfbox.util.Hex;
@@ -32,13 +33,17 @@ import org.apache.pdfbox.util.Hex;
  */
 public final class COSName extends COSBase implements Comparable<COSName>
 {
-    // using ConcurrentHashMap because this can be accessed by multiple threads
-    private static final Map<String, COSName> nameMap = new ConcurrentHashMap<String, COSName>(
-            8192);
+    // Using ConcurrentHashMap because this can be accessed by multiple threads.
+    // The map's size is limited by "staleness". A unused name becomes stale once the number of map insertions exceeds the limit.
+    // This makes this a soft limit: any name actively being used cannot expire.
+    private static final int nameMapLimit = 8192;
+    private static final AtomicInteger pdfNameGen = new AtomicInteger();
+    private static final Map<String, COSName> pdfNames = new ConcurrentHashMap<String, COSName>(nameMapLimit);
+    
 
     // all common COSName values are stored in this HashMap
     // they are already defined as static constants and don't need to be synchronized
-    private static final Map<String, COSName> commonNameMap = new HashMap<String, COSName>(768);
+    private static final Map<String, COSName> commonNames = new HashMap<String, COSName>(768);
 
     //
     // IMPORTANT: this list is *alphabetized* and does not need any JavaDoc
@@ -621,7 +626,30 @@ public final class COSName extends COSBase implements Comparable<COSName>
 
     // fields
     private final String name;
-    private final int hashCode;
+    private volatile int gen;
+
+    /**
+     * Constructor for common names.
+     * 
+     * @param aName The name of the COSName object.
+     */
+    private COSName(String aName)
+    {
+        this.name = aName;
+        commonNames.put(aName, this);
+    }
+
+    /**
+     * Consructor for PDF names.
+     * 
+     * @param aName The name of the COSName object.
+     * @param gen current generation value.
+     */
+    private COSName(String aName, int gen)
+    {
+        this.name = aName;
+        this.gen = gen;
+    }
 
     /**
      * This will get a COSName object with that name.
@@ -632,56 +660,23 @@ public final class COSName extends COSBase implements Comparable<COSName>
      */
     public static COSName getPDFName(String aName)
     {
-        COSName name = null;
-        if (aName != null)
-        {
-            // Is it a common COSName ??
-            name = commonNameMap.get(aName);
-            if (name == null)
-            {
-                // It seems to be a document specific COSName
-                name = nameMap.get(aName);
-                if (name == null)
-                {
-                    // name is added to the synchronized map in the constructor
-                    name = new COSName(aName, false);
-                }
-            }
-        }
+        if ( aName == null ) return null;
+        
+        COSName name = commonNames.get(aName);
+        if ( name != null ) return name;
+
+        name = pdfNames.get(aName);
+        if ( name != null ) return name.touch();
+
+        final int gen = pdfNameGen.incrementAndGet();
+        if ( gen == Integer.MIN_VALUE ) pdfNames.clear(); 
+        else if ( gen % 1024 == 0 ) pdfNames.values().removeIf(COSName::expired);
+        
+        name = new COSName(aName, gen);
+        pdfNames.putIfAbsent(aName, name);
         return name;
     }
-
-    /**
-     * Private constructor. This will limit the number of COSName objects. that are created.
-     * 
-     * @param aName The name of the COSName object.
-     * @param staticValue Indicates if the COSName object is static so that it can be stored in the HashMap without
-     * synchronizing.
-     */
-    private COSName(String aName, boolean staticValue)
-    {
-        name = aName;
-        hashCode = name.hashCode();
-        if (staticValue)
-        {
-            commonNameMap.put(aName, this);
-        }
-        else
-        {
-            nameMap.put(aName, this);
-        }
-    }
-
-    /**
-     * Private constructor. This will limit the number of COSName objects. that are created.
-     * 
-     * @param aName The name of the COSName object.
-     */
-    private COSName(String aName)
-    {
-        this(aName, true);
-    }
-
+    
     /**
      * This will get the name of this COSName object.
      * 
@@ -707,7 +702,7 @@ public final class COSName extends COSBase implements Comparable<COSName>
     @Override
     public int hashCode()
     {
-        return hashCode;
+        return name.hashCode();
     }
 
     @Override
@@ -718,7 +713,6 @@ public final class COSName extends COSBase implements Comparable<COSName>
 
     /**
      * Returns true if the name is the empty string.
-     * @return true if the name is the empty string.
      */
     public boolean isEmpty()
     {
@@ -767,13 +761,21 @@ public final class COSName extends COSBase implements Comparable<COSName>
             }
         }
     }
-
-    /**
-     * Not usually needed except if resources need to be reclaimed in a long running process.
-     */
-    public static synchronized void clearResources()
+    
+    private COSName touch()
     {
-        // Clear them all
-        nameMap.clear();
+        this.gen = pdfNameGen.get();
+        return this;
+    }
+
+    private boolean expired()
+    {
+        return gen <= pdfNameGen.get() - nameMapLimit;
+    }
+
+    @Deprecated
+    public static void clearResources()
+    {
+        pdfNames.clear();
     }
 }
