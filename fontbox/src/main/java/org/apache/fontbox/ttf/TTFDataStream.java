@@ -33,6 +33,8 @@ import org.apache.fontbox.util.Charsets;
  */
 abstract class TTFDataStream implements Closeable
 {
+    public final static int[] EMPTY = {};
+    
     TTFDataStream()
     {
     }
@@ -89,6 +91,8 @@ abstract class TTFDataStream implements Closeable
         byte[] buffer = read(length);
         return new String(buffer, charset);
     }
+    
+    
     /**
      * Read an unsigned byte.
      * 
@@ -97,61 +101,66 @@ abstract class TTFDataStream implements Closeable
      */
     public abstract int read() throws IOException;
 
-    /**
-     * Reads a long value.
-     * 
-     * @return A long.
-     * @throws IOException If there is an error reading the data.
-     */
-    public abstract long readLong() throws IOException;
-
+    
     /**
      * Read a signed byte.
      * 
      * @return A signed byte.
      * @throws IOException If there is an error reading the data.
      */
-    public int readSignedByte() throws IOException
+    public final byte readByte() throws IOException, EOFException
     {
-        int unsignedByte = read();
-        if (unsignedByte == -1) throw new EOFException("premature EOF");
-        return (byte)unsignedByte;
+        return (byte)readUnsignedByte();
     }
 
+    
+    /**
+     * @deprecated Use {@link #readByte()} instead.
+     */
+    @Deprecated
+    public final byte readSignedByte() throws IOException, EOFException
+    {
+        return (byte)readUnsignedByte();
+    }
+
+    
     /**
      * Read a unsigned byte. Similar to {@link #read()}, but throws an exception if EOF is unexpectedly reached.
      * 
      * @return A unsigned byte.
      * @throws IOException If there is an error reading the data.
      */
-    public int readUnsignedByte() throws IOException
+    public final int readUnsignedByte() throws IOException, EOFException
     {
-        int unsignedByte = read();
-        if (unsignedByte == -1)
-        {
-            throw new EOFException("premature EOF");
-        }
-        return unsignedByte;
+        int b = read();
+        if (b == -1) throw new EOFException("premature EOF");
+        return b;
     }
 
+    
     /**
-     * Read an unsigned integer.
+     * Read an signed short.
      * 
-     * @return An unsigned integer.
+     * @return An signed short.
      * @throws IOException If there is an error reading the data.
      */
-    public long readUnsignedInt() throws IOException
+    public short readShort() throws IOException, EOFException
     {
-        long byte1 = read();
-        long byte2 = read();
-        long byte3 = read();
-        long byte4 = read();
-        if (byte4 < 0)
-        {
-            throw new EOFException();
-        }
-        return (byte1 << 24) + (byte2 << 16) + (byte3 << 8) + byte4;
+        int r = read() << 8 | read();
+        if ( r < 0 ) throw new EOFException();
+        return (short)r;
     }
+
+    
+    /**
+     * @deprecated Use {@link #readShort()} instead.
+     */
+    @Deprecated
+    public final short readSignedShort() throws IOException, EOFException
+    {
+        return readShort();
+    }
+
 
     /**
      * Read an unsigned short.
@@ -159,8 +168,53 @@ abstract class TTFDataStream implements Closeable
      * @return An unsigned short.
      * @throws IOException If there is an error reading the data.
      */
-    public abstract int readUnsignedShort() throws IOException;
+    public final int readUnsignedShort() throws IOException, EOFException
+    {
+        return Short.toUnsignedInt(readShort());
+    }
 
+
+    /**
+     * Read a signed integer.
+     * 
+     * @return A signed integer.
+     * @throws IOException If there is a problem reading the file.
+     */
+    public int readInt() throws IOException, EOFException
+    {
+        int byte1 = read();
+        int byte2 = read();
+        int byte3 = read();
+        int byte4 = read();
+        if (byte4 < 0) throw new EOFException();
+        return byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4;
+    }
+    
+    
+    /**
+     * Read an unsigned integer.
+     * 
+     * @return An unsigned integer.
+     * @throws IOException If there is an error reading the data.
+     */
+    public final long readUnsignedInt() throws IOException, EOFException
+    {
+        return Integer.toUnsignedLong(readInt());
+    }
+
+    
+    /**
+     * Reads a long value.
+     * 
+     * @return A long.
+     * @throws IOException If there is an error reading the data.
+     */
+    public long readLong() throws IOException, EOFException
+    {
+        return ((long)(readInt()) << 32) | readUnsignedInt();
+    }
+
+    
     /**
      * Read an unsigned byte array.
      * 
@@ -168,8 +222,10 @@ abstract class TTFDataStream implements Closeable
      * @return An unsigned byte array.
      * @throws IOException If there is an error reading the data.
      */
-    public int[] readUnsignedByteArray(int length) throws IOException
+    public int[] readUnsignedByteArray(int length) throws IOException, EOFException
     {
+        if ( length==0 ) return EMPTY;
+        
         int[] array = new int[length];
         for (int i = 0; i < length; i++)
         {
@@ -185,8 +241,10 @@ abstract class TTFDataStream implements Closeable
      * @return An unsigned short array.
      * @throws IOException If there is an error reading the data.
      */
-    public int[] readUnsignedShortArray(int length) throws IOException
+    public int[] readUnsignedShortArray(int length) throws IOException, EOFException
     {
+        if ( length==0 ) return EMPTY;
+        
         int[] array = new int[length];
         for (int i = 0; i < length; i++)
         {
@@ -196,20 +254,12 @@ abstract class TTFDataStream implements Closeable
     }
 
     /**
-     * Read an signed short.
-     * 
-     * @return An signed short.
-     * @throws IOException If there is an error reading the data.
-     */
-    public abstract short readSignedShort() throws IOException;
-
-    /**
      * Read an eight byte international date.
      * 
      * @return An signed short.
      * @throws IOException If there is an error reading the data.
      */
-    public Calendar readInternationalDate() throws IOException
+    public Calendar readInternationalDate() throws IOException, EOFException
     {
         long secondsSince1904 = readLong();
         Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
@@ -225,18 +275,10 @@ abstract class TTFDataStream implements Closeable
      * Reads a tag, an arrau of four uint8s used to identify a script, language system, feature,
      * or baseline.
      */
-    public String readTag() throws IOException
+    public String readTag() throws IOException, EOFException
     {
         return new String(read(4), Charsets.US_ASCII);
     }
-
-    /**
-     * Seek into the datasource.
-     * 
-     * @param pos The position to seek to.
-     * @throws IOException If there is an error seeking to that position.
-     */
-    public abstract void seek(long pos) throws IOException;
 
     /**
      * Read a specific number of bytes from the stream.
@@ -245,7 +287,7 @@ abstract class TTFDataStream implements Closeable
      * @return The byte buffer.
      * @throws IOException If there is an error while reading.
      */
-    public byte[] read(int numberOfBytes) throws IOException
+    public byte[] read(int numberOfBytes) throws IOException, EOFException
     {
         byte[] data = new byte[numberOfBytes];
         int amountRead = 0;
@@ -256,15 +298,20 @@ abstract class TTFDataStream implements Closeable
         {
             totalAmountRead += amountRead;
         }
-        if (totalAmountRead == numberOfBytes)
+        if (totalAmountRead != numberOfBytes)
         {
-            return data;
+            throw new EOFException("Unexpected end of TTF stream reached");
         }
-        else
-        {
-            throw new IOException("Unexpected end of TTF stream reached");
-        }
+        return data;
     }
+
+    /**
+     * Seek into the datasource.
+     * 
+     * @param pos The position to seek to.
+     * @throws IOException If there is an error seeking to that position.
+     */
+    public abstract void seek(long pos) throws IOException;
 
     /**
      * @see java.io.InputStream#read(byte[], int, int )

@@ -17,11 +17,11 @@
 package org.apache.fontbox.ttf;
 
 import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.fontbox.util.OpenByteArrayOutputStream;
+
 /**
  * An interface into a data stream.
  * 
@@ -56,96 +56,23 @@ class MemoryTTFDataStream extends TTFDataStream
     }
     
     /**
-     * Read an unsigned byte.
-     * @return An unsigned byte.
-     * @throws IOException If there is an error reading the data.
+     * Doesn't do anything. The in memory buffer is retained forever due to
+     * later access when drawing glyphs.
      */
     @Override
-    public long readLong() throws IOException
+    public void close()
     {
-        return ((long)(readSignedInt()) << 32) + (readSignedInt() & 0xFFFFFFFFL);
-    }
-    
-    /**
-     * Read a signed integer.
-     * 
-     * @return A signed integer.
-     * @throws IOException If there is a problem reading the file.
-     */
-    public int readSignedInt() throws IOException
-    {
-        int ch1 = read();
-        int ch2 = read();
-        int ch3 = read();
-        int ch4 = read();
-        if( (ch1 | ch2 | ch3 | ch4) < 0)
-        {
-            throw new EOFException();
-        }
-        return ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + ch4);
     }
     
     /**
      * Read an unsigned byte.
-     * @return An unsigned byte.
+     * @return An unsigned byte or {@code -1} on end of stream.
      * @throws IOException If there is an error reading the data.
      */
     @Override
     public int read() throws IOException
     {
-        if (currentPosition >= data.length)
-        {
-            return -1;
-        }
-        int retval = data[currentPosition];
-        currentPosition++;
-        return (retval+256)%256;
-    }
-    
-    /**
-     * Read an unsigned short.
-     * 
-     * @return An unsigned short.
-     * @throws IOException If there is an error reading the data.
-     */
-    @Override
-    public int readUnsignedShort() throws IOException
-    {
-        int ch1 = this.read();
-        int ch2 = this.read();
-        if ((ch1 | ch2) < 0)
-        {
-            throw new EOFException();
-        }
-        return (ch1 << 8) + ch2;
-    }
-    
-    /**
-     * Read an signed short.
-     * 
-     * @return An signed short.
-     * @throws IOException If there is an error reading the data.
-     */
-    @Override
-    public short readSignedShort() throws IOException
-    {
-        int ch1 = this.read();
-        int ch2 = this.read();
-        if ((ch1 | ch2) < 0)
-        {
-            throw new EOFException();
-        }
-        return (short)((ch1 << 8) + ch2);
-    }
-    
-    /**
-     * Close the underlying resources.
-     * 
-     * @throws IOException If there is an error closing the resources.
-     */
-    @Override
-    public void close() throws IOException
-    {
+        return currentPosition >= data.length ? -1 : data[currentPosition++] & 0xff;
     }
     
     /**
@@ -176,22 +103,14 @@ class MemoryTTFDataStream extends TTFDataStream
      * @throws IOException If there is an error reading from the stream.
      */
     @Override
-    public int read(byte[] b,
-            int off,
-            int len)
-     throws IOException
+    public int read(byte[] b, int off, int len) throws IOException
      {
-        if (currentPosition < data.length)
-        {
-            int amountRead = Math.min( len, data.length-currentPosition );
-            System.arraycopy(data,currentPosition,b, off, amountRead );
-            currentPosition+=amountRead;
-            return amountRead;
-        }
-        else
-        {
-            return -1;
-        }
+        if (currentPosition >= data.length) return -1;
+        
+        int r = Math.min(len, data.length - currentPosition);
+        System.arraycopy(data, currentPosition, b, off, r);
+        currentPosition += r;
+        return r;
      }
     
     /**
@@ -205,18 +124,12 @@ class MemoryTTFDataStream extends TTFDataStream
         return currentPosition;
     }
     
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public InputStream getOriginalData() throws IOException
     {
         return new ByteArrayInputStream( data );
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public long getOriginalDataSize()
     {

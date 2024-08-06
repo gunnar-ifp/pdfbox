@@ -17,6 +17,7 @@
 
 package org.apache.fontbox.ttf;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -39,23 +40,23 @@ class TTCDataStream extends TTFDataStream
     {
         return stream.read();
     }
+    
+    @Override
+    public short readShort() throws IOException
+    {
+        return stream.readShort();
+    }
+
+    @Override
+    public int readInt() throws IOException, EOFException
+    {
+        return stream.readInt();
+    }
 
     @Override
     public long readLong() throws IOException
     {
         return stream.readLong();
-    }
-
-    @Override
-    public int readUnsignedShort() throws IOException
-    {
-        return stream.readUnsignedShort();
-    }
-
-    @Override
-    public short readSignedShort() throws IOException
-    {
-        return stream.readSignedShort();
     }
 
     @Override
