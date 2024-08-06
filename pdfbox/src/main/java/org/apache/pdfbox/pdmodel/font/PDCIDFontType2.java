@@ -46,7 +46,7 @@ public class PDCIDFontType2 extends PDCIDFont
     private static final Log LOG = LogFactory.getLog(PDCIDFontType2.class);
 
     private final TrueTypeFont ttf;
-    private final int[] cid2gid;
+    private final char[] cid2gid;
     private final boolean isEmbedded;
     private final boolean isDamaged;
     private final CmapLookup cmap; // may be null

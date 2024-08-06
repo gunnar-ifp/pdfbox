@@ -61,7 +61,7 @@ public class PDCIDFontType0 extends PDCIDFont
     private Matrix fontMatrix;
     private final AffineTransform fontMatrixTransform;
     private BoundingBox fontBBox;
-    private int[] cid2gid = null;
+    private char[] cid2gid = null;
 
     /**
      * Constructor.
