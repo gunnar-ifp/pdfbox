@@ -16,12 +16,12 @@
  */
 package org.apache.pdfbox.cos;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import java.util.Arrays;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.util.OpenByteArrayOutputStream;
 import org.apache.pdfbox.util.Charsets;
 import org.apache.pdfbox.util.Hex;
 
@@ -54,15 +54,41 @@ public final class COSString extends COSBase
     public static final boolean FORCE_PARSING =
             Boolean.getBoolean("org.apache.pdfbox.forceParsing");
 
+
+    public static COSString copy(byte[] bytes)
+    {
+        return new COSString(bytes, true);
+    }
+
+    
+    public static COSString wrap(byte[] bytes)
+    {
+        return new COSString(bytes, false);
+    }
+
+    
     /**
      * Creates a new PDF string from a byte array. This method can be used to read a string from
      * an existing PDF file, or to create a new byte string.
      *
-     * @param bytes The raw bytes of the PDF text string or byte string.
+     * @param bytes The raw bytes of the PDF text string or byte string. The contents will be copied.
      */
+    private COSString(byte[] bytes, boolean clone)
+    {
+        this.bytes = clone ? bytes.clone() : bytes;
+    }
+    
+    
+    /**
+     * Creates a new PDF string from a byte array. This method can be used to read a string from
+     * an existing PDF file, or to create a new byte string.
+     *
+     * @param bytes The raw bytes of the PDF text string or byte string. The contents will be copied.
+     */
+    @Deprecated
     public COSString(byte[] bytes)
     {
-        setValue(bytes);
+        this(bytes, true);
     }
 
     /**
@@ -144,7 +170,7 @@ public final class COSString extends COSBase
     /**
      * Sets the raw value of this string.
      *
-     * @param value The raw bytes of the PDF text string or byte string.
+     * @param value The raw bytes of the PDF text string or byte string. The contents will be copied.
      */
     public void setValue(byte[] value)
     {

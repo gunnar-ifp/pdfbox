@@ -552,7 +552,7 @@ public abstract class BaseParser
         {
             seqSource.unread(c);
         }
-        return new COSString(out.toByteArray());
+        return COSString.wrap(out.toByteArray());
     }
 
     /**

@@ -250,7 +250,7 @@ public class PDSeedValueCertificate implements COSObjectable
         {
             array = new COSArray();
         }
-        array.add(new COSString(subject));
+        array.add(COSString.copy(subject));
         dictionary.setItem(COSName.SUBJECT, array);
     }
 
@@ -264,7 +264,7 @@ public class PDSeedValueCertificate implements COSObjectable
         COSArray array = dictionary.getCOSArray(COSName.SUBJECT);
         if (array != null)
         {
-            array.remove(new COSString(subject));
+            array.remove(COSString.copy(subject));
         }
     }
 
@@ -483,7 +483,7 @@ public class PDSeedValueCertificate implements COSObjectable
         {
             array = new COSArray();
         }
-        array.add(new COSString(issuer));
+        array.add(COSString.copy(issuer));
         dictionary.setItem(COSName.ISSUER, array);
     }
 
@@ -497,7 +497,7 @@ public class PDSeedValueCertificate implements COSObjectable
         COSArray array = dictionary.getCOSArray(COSName.ISSUER);
         if (array != null)
         {
-            array.remove(new COSString(issuer));
+            array.remove(COSString.copy(issuer));
         }
     }
 
@@ -537,7 +537,7 @@ public class PDSeedValueCertificate implements COSObjectable
         {
             array = new COSArray();
         }
-        array.add(new COSString(oid));
+        array.add(COSString.copy(oid));
         dictionary.setItem(COSName.OID, array);
     }
 
@@ -551,7 +551,7 @@ public class PDSeedValueCertificate implements COSObjectable
         COSArray array = dictionary.getCOSArray(COSName.OID);
         if (array != null)
         {
-            array.remove(new COSString(oid));
+            array.remove(COSString.copy(oid));
         }
     }
 
@@ -638,7 +638,7 @@ public class PDSeedValueCertificate implements COSObjectable
         COSArray array = new COSArray();
         for (byte[] string : strings)
         {
-            array.add(new COSString(string));
+            array.add(COSString.copy(string));
         }
         return array;
     }
