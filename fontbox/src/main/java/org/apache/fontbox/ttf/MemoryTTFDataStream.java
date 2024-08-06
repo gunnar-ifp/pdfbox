@@ -30,9 +30,18 @@ import org.apache.fontbox.util.OpenByteArrayOutputStream;
  */
 class MemoryTTFDataStream extends TTFDataStream 
 {
+    private final byte[] data;
     private int currentPosition = 0;
     
     /**
+     * Constructor from a byte array stream. 
+     * @throws IOException If an error occurs while reading from the stream.
+     */
+    MemoryTTFDataStream(byte[] data) throws IOException
+    {
+        this.data = data;
+    }
+    
     /**
      * Constructor from a stream. 
      * @param is The stream to read from. It will be closed by this method.
@@ -40,19 +49,9 @@ class MemoryTTFDataStream extends TTFDataStream
      */
     MemoryTTFDataStream( InputStream is ) throws IOException
     {
-        {
-            ByteArrayOutputStream output = new ByteArrayOutputStream( is.available() );
-            byte[] buffer = new byte[1024];
-            int amountRead;
-            while( (amountRead = is.read( buffer ) ) != -1 )
-            {
-                output.write( buffer, 0, amountRead );
-            }
-            data = output.toByteArray();
-        }
-        finally
-        {
-            is.close();
+        try (InputStream in = is; OpenByteArrayOutputStream output = OpenByteArrayOutputStream.estimate(in.available())) {
+            output.readFully(in);
+            this.data = output.finished();
         }
     }
     
