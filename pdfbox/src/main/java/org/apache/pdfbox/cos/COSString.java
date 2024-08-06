@@ -132,39 +132,27 @@ public final class COSString extends COSBase
      * @return A cos string with the hex characters converted to their actual bytes.
      * @throws IOException If there is an error with the hex string.
      */
-    public static COSString parseHex(String hex) throws IOException
+    public static COSString parseHex(CharSequence hex) throws IOException
     {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        StringBuilder hexBuffer = new StringBuilder(hex.trim());
-
-        // if odd number then the last hex digit is assumed to be 0
-        if (hexBuffer.length() % 2 != 0)
-        {
-            hexBuffer.append('0');
-        }
-
-        int length = hexBuffer.length();
-        for (int i = 0; i < length; i += 2)
-        {
-            try
-            {
-                bytes.write(Integer.parseInt(hexBuffer.substring(i, i + 2), 16));
+        int i = 0, e = hex.length();
+        while ( i < e && hex.charAt(i)     <= 0x20 ) i++;
+        while ( e > i && hex.charAt(e - 1) <= 0x20 ) e--;
+        OpenByteArrayOutputStream bytes = OpenByteArrayOutputStream.exact((e - i + 1) / 2);
+        while ( i < e ) {
+            int v = Character.digit(hex.charAt(i++), 16) << 4;
+            if ( i < e ) v |= Character.digit(hex.charAt(i++), 16);
+            if ( v >= 0 ) {
+                bytes.write(v);
             }
-            catch (NumberFormatException e)
-            {
-                if (FORCE_PARSING)
-                {
-                    LOG.warn("Encountered a malformed hex string");
-                    bytes.write('?'); // todo: what does Acrobat do? Any example PDFs?
-                }
-                else
-                {
-                    throw new IOException("Invalid hex string: " + hex, e);
-                }
+            else if (FORCE_PARSING) {
+                LOG.warn("Encountered a malformed hex string");
+                bytes.write('?'); // todo: what does Acrobat do? Any example PDFs?
+            }
+            else {
+                throw new IOException("Invalid hex string: " + hex.toString().trim());
             }
         }
-
-        return new COSString(bytes.toByteArray());
+        return wrap(bytes.finished());
     }
 
     /**

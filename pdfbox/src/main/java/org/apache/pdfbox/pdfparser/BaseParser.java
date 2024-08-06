@@ -23,6 +23,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.util.OpenByteArrayOutputStream;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSBoolean;
@@ -495,18 +496,17 @@ public abstract class BaseParser
                     case '5':
                     case '6':
                     case '7':
-                        StringBuilder octal = new StringBuilder();
-                        octal.append( next );
+                        int octal = next - '0';
                         c = seqSource.read();
                         char digit = (char)c;
                         if( digit >= '0' && digit <= '7' )
                         {
-                            octal.append( digit );
+                            octal = octal * 8 + digit - '0';
                             c = seqSource.read();
                             digit = (char)c;
                             if( digit >= '0' && digit <= '7' )
                             {
-                                octal.append( digit );
+                                octal = octal * 8 + digit - '0';
                             }
                             else
                             {
@@ -518,16 +518,7 @@ public abstract class BaseParser
                             nextc = c;
                         }
     
-                        int character = 0;
-                        try
-                        {
-                            character = Integer.parseInt( octal.toString(), 8 );
-                        }
-                        catch( NumberFormatException e )
-                        {
-                            throw new IOException( "Error: Expected octal character, actual='" + octal + "'", e );
-                        }
-                        out.write(character);
+                        out.write(octal);
                         break;
                     default:
                         // dropping the backslash
@@ -619,7 +610,7 @@ public abstract class BaseParser
                 break;
             }
         }
-        return COSString.parseHex(sBuf.toString());
+        return COSString.parseHex(sBuf);
     }
    
     /**
@@ -717,7 +708,7 @@ public abstract class BaseParser
     protected COSName parseCOSName() throws IOException
     {
         readExpectedChar('/');
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        OpenByteArrayOutputStream buffer = new OpenByteArrayOutputStream();
         int c = seqSource.read();
         while (c != -1)
         {
@@ -774,33 +765,14 @@ public abstract class BaseParser
             seqSource.unread(c);
         }
         
-        byte[] bytes = buffer.toByteArray();
-        String string;
-        if (isValidUTF8(bytes))
-        {
-            string = new String(bytes, Charsets.UTF_8);
-        }
-        else
-        {
-            // some malformed PDFs don't use UTF-8 see PDFBOX-3347
-            string = new String(bytes, Charsets.WINDOWS_1252);
-        }
-        return COSName.getPDFName(string);
-    }
-
-    /**
-     * Returns true if a byte sequence is valid UTF-8.
-     */
-    private boolean isValidUTF8(byte[] input)
-    {
         try
         {
-            utf8Decoder.decode(ByteBuffer.wrap(input));
-            return true;
+            return COSName.getPDFName(utf8Decoder.decode(ByteBuffer.wrap(buffer.array(), 0, buffer.size())).toString());
         }
         catch (CharacterCodingException e)
         {
-            return false;
+            // some malformed PDFs don't use UTF-8 see PDFBOX-3347
+            return COSName.getPDFName(new String(buffer.array(), 0, buffer.size(), Charsets.WINDOWS_1252));
         }
     }
     
