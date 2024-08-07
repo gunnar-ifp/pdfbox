@@ -30,6 +30,7 @@ import org.apache.fontbox.ttf.CmapLookup;
 import org.apache.fontbox.ttf.TTFParser;
 import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.fontbox.util.BoundingBox;
+import org.apache.fontbox.util.Bytes;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -535,10 +536,10 @@ public class PDType0Font extends PDFont implements PDVectorFont
                             // PDCIDFontType2.codeToGID() which would bring a stackoverflow
                             gid = descendantFont.codeToCID(code);
                         }
-                        List<Integer> codes = cmap.getCharCodes(gid);
-                        if (codes != null && !codes.isEmpty())
+                        int codes = cmap.getFirstCharCode(gid);
+                        if ( codes != -1 )
                         {
-                            return Character.toString((char) (int) codes.get(0));
+                            return Bytes.toString(codes);
                         }
                     }
                 }
