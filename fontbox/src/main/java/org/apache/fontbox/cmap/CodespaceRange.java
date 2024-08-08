@@ -16,18 +16,20 @@
  */
 package org.apache.fontbox.cmap;
 
+import java.util.Arrays;
+
 /**
  * This represents a single entry in the codespace range.
  *
  * @author Ben Litchfield
  */
-public class CodespaceRange
+class CodespaceRange implements Comparable<CodespaceRange>
 {
-    private byte[] startBytes;
-    private byte[] endBytes;
-    private int[] start;
-    private int[] end;
-    private int codeLength = 0;
+    public final static int LIMIT = 4;
+    
+    private final int[] start;
+    private final int[] end;
+    private final int length;
     
     /**
      * Creates a new instance of CodespaceRange. The length of both arrays has to be the same.<br>
@@ -36,137 +38,145 @@ public class CodespaceRange
      * &lt;00&gt; &lt;20&gt; defines a linear range from 0x00 up to 0x20.<br>
      * &lt;8140&gt; to &lt;9FFC&gt; defines a rectangular range. The high byte has to be within 0x81 and 0x9F and the
      * low byte has to be within 0x40 and 0xFC
-     * 
-     * @param startBytes
-     * @param endBytes
+     * <p>
+     * Up to 4 dimensions are supported.
      */
-    public CodespaceRange(byte[] startBytes, byte[] endBytes)
+    public CodespaceRange(byte[] startBytes, byte[] endBytes) throws IllegalArgumentException
     {
-        byte[] correctedStartBytes = startBytes;
-        if (startBytes.length != endBytes.length && startBytes.length == 1 && startBytes[0] == 0)
-        {
-            correctedStartBytes = new byte[endBytes.length];
+        final int len = endBytes.length, sl = startBytes.length;
+        // start and end lengths must match except if start is <00> and end is like <ffff>
+        if ( len == 0 || len > 4 || sl != len && (sl != 1 || startBytes[0] != 0) ) {
+            throw new IllegalArgumentException(String.format("start (%d) and end (%d) value length invalid", sl, len));
         }
-        else if (startBytes.length != endBytes.length)
-        {
-            throw new IllegalArgumentException(
-                    "The start and the end values must not have different lengths.");
+        
+        this.length = len;
+        this.start  = new int[len];
+        this.end    = new int[len];
+        for ( int i = 0; i < len; i++) {
+            start[i] = i<sl ? startBytes[i] & 0xFF : 0;
+            end[i]   = endBytes[i] & 0xFF;
         }
-        start = new int[correctedStartBytes.length];
-        end = new int[endBytes.length];
-        for (int i = 0; i < correctedStartBytes.length; i++)
-        {
-            start[i] = correctedStartBytes[i] & 0xFF;
-            end[i] = endBytes[i] & 0xFF;
-        }
-        codeLength = endBytes.length;
     }
 
-    /**
-     * Creates a new instance of CodespaceRange.
-     * 
-     * @deprecated to be removed in the next major release.
-     */
-    public CodespaceRange()
-    {
-    }
-
+    
     /**
      * Returns the length of the codes of the codespace.
-     * 
-     * @return the code length
+     */
+    public int length()
+    {
+        return length;
+    }
+    
+    
+    /**
+     * Returns the length of the codes of the codespace.
      */
     public int getCodeLength()
     {
-        return codeLength;
+        return length;
     }
 
-    /**
-     * Getter for property end.
-     * 
-     * @return Value of property end.
-     *
-     * @deprecated to be removed in the next major release
-     */
-    public byte[] getEnd()
-    {
-        return endBytes;
-    }
-
-    /**
-     * Setter for property end.
-     * 
-     * @param endBytes New value of property end.
-     *
-     * @deprecated to be removed in the next major release
-     */
-    void setEnd(byte[] endBytes)
-    {
-        this.endBytes = endBytes;
-        end = new int[endBytes.length];
-        for (int i = 0; i < endBytes.length; i++)
-        {
-            end[i] = endBytes[i] & 0xFF;
-        }
-    }
-
-    /**
-     * Getter for property start.
-     * 
-     * @return Value of property start.
-     *
-     * @deprecated to be removed in the next major release
-     */
-    public byte[] getStart()
-    {
-        return startBytes;
-    }
-
-    /**
-     * Setter for property start.
-     * 
-     * @param startBytes New value of property start.
-     *
-     * @deprecated to be removed in the next major release
-     */
-    void setStart(byte[] startBytes)
-    {
-        this.startBytes = startBytes;
-        start = new int[startBytes.length];
-        for (int i = 0; i < startBytes.length; i++)
-        {
-            start[i] = startBytes[i] & 0xFF;
-        }
-        codeLength = startBytes.length;
-    }
 
     /**
      * Returns true if the given code bytes match this codespace range.
      */
     public boolean matches(byte[] code)
     {
-        return isFullMatch(code, code.length);
+        return matches(code, 0, code.length);
     }
+    
 
     /**
      * Returns true if the given code bytes match this codespace range.
      */
-    public boolean isFullMatch(byte[] code, int codeLen)
+    public boolean matches(byte[] code, int offset, int len)
     {
-        // code must be the same length as the bounding codes
-        if (codeLength != codeLen)
-        {
-            return false;
-        }
-        for (int i = 0; i < codeLength; i++)
-        {
-            int codeAsInt = code[i] & 0xFF;
-            if (codeAsInt < start[i] || codeAsInt > end[i])
-            {
-                return false;
-            }
+        if (length != len) return false;
+        for (int i = 0; i < length; i++) {
+            int c = code[offset + i] & 0xFF;
+            if ( c < start[i] || c > end[i] ) return false;
         }
         return true;
+    }
+    
+    
+    public boolean matches(int b0)
+    {
+        return length == 1
+            && b0 >= start[0] && b0 <= end[0];
+    }
+    
+
+    public boolean matches(int b0, int b1)
+    {
+        return length == 2
+            && b0 >= start[0] && b0 <= end[0]
+            && b1 >= start[1] && b0 <= end[1];
+    }
+
+    
+    public boolean matches(int b0, int b1, int b2)
+    {
+        return length == 3
+            && b0 >= start[0] && b0 <= end[0]
+            && b1 >= start[1] && b0 <= end[1]
+            && b2 >= start[2] && b2 <= end[2];
+    }
+
+    
+    public boolean matches(int b0, int b1, int b2, int b3)
+    {
+        return length == 4
+            && b0 >= start[0] && b0 <= end[0]
+            && b1 >= start[1] && b0 <= end[1]
+            && b2 >= start[2] && b2 <= end[2]
+            && b3 >= start[3] && b3 <= end[3];
+    }
+
+    
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + length;
+        result = prime * result + Arrays.hashCode(start);
+        result = prime * result + Arrays.hashCode(end);
+        return result;
+    }
+
+    
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (!(obj instanceof CodespaceRange)) return false;
+        CodespaceRange other = (CodespaceRange)obj;
+        if (length != other.length) return false;
+        if (!Arrays.equals(start, other.start)) return false;
+        if (!Arrays.equals(end, other.end)) return false;
+        return true;
+    }
+
+    
+    @Override
+    public int compareTo(CodespaceRange o)
+    {
+        int c = Integer.compare(length, o.length);
+        // compare the same as matches, so that its return value can be used for short circuiting (planned feature)
+        for ( int i = 0; c == 0 && i < length; i++ ) {
+            c = Integer.compare(start[i], o.start[i]);
+            if ( c == 0 ) c = Integer.compare(end[i], o.end[i]);
+        }
+        return c;
+    }
+
+    
+    @Override
+    public String toString()
+    {
+        return "CodespaceRange [length=" + length + ", start=" + Arrays.toString(start) + ", end=" + Arrays.toString(end) + "]";
     }
     
 }

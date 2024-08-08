@@ -37,11 +37,9 @@ public class TestCMap extends TestCase
      */
     public void testLookup() throws IOException
     {
-        byte[] bs = new byte[1];
-        bs[0] = (byte)200;
-
+        byte[] bs = new byte[] { (byte)200 };
         CMap cMap = new CMap();
-        cMap.addCharMapping(bs, "a");
+        cMap.addBasefontMapping(bs, "a");
         assertTrue("a".equals(cMap.toUnicode(200)));
     }
 

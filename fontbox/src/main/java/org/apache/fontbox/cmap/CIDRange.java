@@ -18,71 +18,78 @@ package org.apache.fontbox.cmap;
 
 
 /**
- * Range of continuous CIDs between two Unicode characters.
+ * Range of continuous CIDs between a character code range.
  */
 class CIDRange
 {
+    private final int codeLength;
+    private final int codeStart;
+    private int codeEnd;
+    private final int cidStart;
 
-    private final char from;
-
-    private char to;
-
-    private final int cid;
-
-    CIDRange(char from, char to, int cid)
-    {
-        this.from = from;
-        this.to = to;
-        this.cid = cid;
-    }
 
     /**
-     * Maps the given Unicode character to the corresponding CID in this range.
-     *
-     * @param ch Unicode character
-     * @return corresponding CID, or -1 if the character is out of range
+     * @param from start character code
+     * @param to end character code
+     * @param cid start CID
      */
-    public int map(char ch)
+    public CIDRange(int from, int to, int cid, int codeLength)
     {
-        if (from <= ch && ch <= to)
-        {
-            return cid + (ch - from);
-        }
-        return -1;
+        this.codeLength = codeLength;
+        this.codeStart = from;
+        this.codeEnd = to;
+        this.cidStart = cid;
     }
 
-    /**
-     * Maps the given CID to the corresponding Unicode character in this range.
-     *
-     * @param code CID
-     * @return corresponding Unicode character, or -1 if the CID is out of range
-     */
-    public int unmap(int code)
-    {
-        if (cid <= code && code <= cid + (to - from))
-        {
-            return from + (code - cid);
-        }
-        return -1;
-    }
+    
 
+    public int length()
+    {
+        return codeLength;
+    }
+    
+    
     /**
      * Check if the given values represent a consecutive range of the given range. If so, extend the given range instead
      * of creating a new one.
      * 
-     * @param newFrom start value of the new range
-     * @param newTo end value of the new range
-     * @param newCid start CID value of the range
+     * @param from start character code of the new range
+     * @param to end character code of the new range
+     * @param cid start CID value of the range
+     * @param length code length
      * @return true if the given range was extended
      */
-    public boolean extend(char newFrom, char newTo, int newCid)
+    public boolean extend(int from, int to, int cid, int length)
     {
-        if ((newFrom == to + 1) && (newCid == cid + to - from + 1))
+        if ( this.codeLength == length && (from == codeEnd + 1) && (cid == cidStart + codeEnd - codeStart + 1) )
         {
-            to = newTo;
+            codeEnd = to;
             return true;
         }
         return false;
+    }
+
+    /**
+     * Maps the given character code to the corresponding CID in this range.
+     *
+     * @param code character code
+     * @return corresponding CID, or {@code -1} if the character code is out of range
+     */
+    public int map(int code)
+    {
+        return codeStart <= code && code <= codeEnd ? (cidStart + code - codeStart) : -1;
+    }
+    
+
+    /**
+     * Maps the given CID to the corresponding character code in this range.
+     *
+     * @param cid CID
+     * @return corresponding character code, or {@code -1} if the CID is out of range
+     */
+    public int unmap(int cid)
+    {
+        return cidStart <= cid && cid <= (cidStart + codeEnd - codeStart) ? (codeStart + cid - cidStart) : -1;
     }
 
 }
