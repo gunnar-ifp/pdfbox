@@ -35,16 +35,16 @@ public final class Matrix implements Cloneable
     private float single0 = 1;
     private float single1 = 0;
     /** fixed 0 */
-    private float single2 = 0;
+    private final static float single2 = 0;
     private float single3 = 0;
     /** initial 1 */
     private float single4 = 1;
     /** fixed 0 */
-    private float single5 = 0;
+    private final static float single5 = 0;
     private float single6 = 0;
     private float single7 = 0;
     /** fixed 1 */
-    private float single8 = 1;
+    private final static float single8 = 1;
     
     private static final float MAX_FLOAT_VALUE = 3.4028235E38f;
 
@@ -66,13 +66,13 @@ public final class Matrix implements Cloneable
     {
         single0 = m.single0;
         single1 = m.single1;
-        single2 = m.single2;
+//      single2 = m.single2;
         single3 = m.single3;
         single4 = m.single4;
-        single5 = m.single5;
+//      single5 = m.single5;
         single6 = m.single6;
         single7 = m.single7;
-        single8 = m.single8;
+//      single8 = m.single8;
     }
     
     
@@ -186,13 +186,13 @@ public final class Matrix implements Cloneable
     {
         single0 = 1;
         single1 = 0;
-        single2 = 0;
+//      single2 = 0;
         single3 = 0;
         single4 = 1;
-        single5 = 0;
+//      single5 = 0;
         single6 = 0;
         single7 = 0;
-        single8 = 1;
+//      single8 = 1;
     }
 
     /**
@@ -261,16 +261,13 @@ public final class Matrix implements Cloneable
     	switch (row * 3 + column) {
     		case 0: single0 = value; break;
     		case 1: single1 = value; break;
-    		case 2: single2 = value; break;
-    		//case 2: if ( value!=single2 ) throw new IllegalArgumentException("is fixed value: " + single2); break;
+    		case 2: if ( value != single2 ) throw new IllegalArgumentException("m[0][2] is fixed value 0") ; break;
     		case 3: single3 = value; break;
     		case 4: single4 = value; break;
-    		case 5: single5 = value; break;
-    		//case 5: if ( value!=single5 ) throw new IllegalArgumentException("is fixed value: " + single5); break;
+    		case 5: if ( value != single5 ) throw new IllegalArgumentException("m[1][2] is fixed value 0"); break;
     		case 6: single6 = value; break;
     		case 7: single7 = value; break;
-    		case 8: single8 = value; break;
-    		//case 8: if ( value!=single8 ) throw new IllegalArgumentException("is fixed value: " + single8); break;
+    		case 8: if ( value != single8 ) throw new IllegalArgumentException("m[2][2] is fixed value 1"); break;
     		default: throw new IndexOutOfBoundsException(row + ":" + column); 
     	}
     	
@@ -379,7 +376,7 @@ public final class Matrix implements Cloneable
      */
     public Matrix multiply(Matrix other)
     {
-        return multiply(other, new Matrix());
+        return isFinite(multiplyArrays(this, other));
     }
 
     /**
@@ -397,23 +394,25 @@ public final class Matrix implements Cloneable
     @Deprecated
     public Matrix multiply( Matrix other, Matrix result )
     {
-    	if ( result==null ) result = new Matrix();
+    	if ( result==null ) return multiply(other);
     	
     	multiplyArrays(this, other, result);
-
-        if (!Matrix.isFinite(result.single0) //
-                || !Matrix.isFinite(result.single1) //
-                || !Matrix.isFinite(result.single2) //
-                || !Matrix.isFinite(result.single3) //
-                || !Matrix.isFinite(result.single4) //
-                || !Matrix.isFinite(result.single5) //
-                || !Matrix.isFinite(result.single6) //
-                || !Matrix.isFinite(result.single7) //
-                || !Matrix.isFinite(result.single8))
-        {
+    	isFinite(result);
+    	return result;
+    }
+    
+    
+    private static Matrix isFinite(Matrix result)
+    {
+        if (!Matrix.isFinite(result.single0)
+                || !Matrix.isFinite(result.single1)
+                || !Matrix.isFinite(result.single3)
+                || !Matrix.isFinite(result.single4)
+                || !Matrix.isFinite(result.single6)
+                || !Matrix.isFinite(result.single7)
+        ) {
             throw new IllegalArgumentException("Multiplying two matrices produces illegal values");
         }
-
         return result;
     }
 
@@ -425,25 +424,40 @@ public final class Matrix implements Cloneable
 
     private static void multiplyArrays(Matrix a, Matrix b, Matrix out)
     {
-        float c0 = a.single0 * b.single0 + a.single1 * b.single3 + a.single2 * b.single6;
-        float c1 = a.single0 * b.single1 + a.single1 * b.single4 + a.single2 * b.single7;
-        float c2 = a.single0 * b.single2 + a.single1 * b.single5 + a.single2 * b.single8; // fixed 0
-        float c3 = a.single3 * b.single0 + a.single4 * b.single3 + a.single5 * b.single6;
-        float c4 = a.single3 * b.single1 + a.single4 * b.single4 + a.single5 * b.single7;
-        float c5 = a.single3 * b.single2 + a.single4 * b.single5 + a.single5 * b.single8; // fixed 0
-        float c6 = a.single6 * b.single0 + a.single7 * b.single3 + a.single8 * b.single6;
-        float c7 = a.single6 * b.single1 + a.single7 * b.single4 + a.single8 * b.single7;
-        float c8 = a.single6 * b.single2 + a.single7 * b.single5 + a.single8 * b.single8; // fixed 1
+        float c0 = a.single0 * b.single0 + a.single1 * b.single3; // + a.single2 * b.single6;
+        float c1 = a.single0 * b.single1 + a.single1 * b.single4; // + a.single2 * b.single7;
+//      float c2 = a.single0 * b.single2 + a.single1 * b.single5; // + a.single2 * b.single8; // fixed 0: [0] * 0 + [1] * 0 + 0 * 1
+        float c3 = a.single3 * b.single0 + a.single4 * b.single3; // + a.single5 * b.single6;
+        float c4 = a.single3 * b.single1 + a.single4 * b.single4; // + a.single5 * b.single7;
+//      float c5 = a.single3 * b.single2 + a.single4 * b.single5; // + a.single5 * b.single8; // fixed 0: [3] * 0 + [4] * 0 + 0 * 1
+        float c6 = a.single6 * b.single0 + a.single7 * b.single3 + b.single6; // + a.single8 * b.single6;
+        float c7 = a.single6 * b.single1 + a.single7 * b.single4 + b.single7; // + a.single8 * b.single7;
+//      float c8 = a.single6 * b.single2 + a.single7 * b.single5 + a.single8 * b.single8; // fixed 1: [6] * 0 + [7] * 0 + 1 * 1
+        
         out.single0 = c0;
         out.single1 = c1;
-        out.single2 = c2; //
+//      out.single2 = c2;
         out.single3 = c3;
         out.single4 = c4;
-        out.single5 = c5; //
+//      out.single5 = c5;
         out.single6 = c6;
         out.single7 = c7;
-        out.single8 = c8; //
+//      out.single8 = c8;
     }
+    
+    
+    private static Matrix multiplyArrays(Matrix a, Matrix b)
+    {
+        return new Matrix(
+            a.single0 * b.single0 + a.single1 * b.single3,
+            a.single0 * b.single1 + a.single1 * b.single4,
+            a.single3 * b.single0 + a.single4 * b.single3,
+            a.single3 * b.single1 + a.single4 * b.single4,
+            a.single6 * b.single0 + a.single7 * b.single3 + b.single6,
+            a.single6 * b.single1 + a.single7 * b.single4 + b.single7
+         );
+    }
+    
 
     /**
      * Transforms the given point by this matrix.
