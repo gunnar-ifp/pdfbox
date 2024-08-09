@@ -393,7 +393,7 @@ public class PDSignature implements COSObjectable
      */
     public void setContents(byte[] bytes)
     {
-        COSString string = new COSString(bytes);
+        COSString string = COSString.copy(bytes);
         string.setForceHexForm(true);
         dictionary.setItem(COSName.CONTENTS, string);
     }

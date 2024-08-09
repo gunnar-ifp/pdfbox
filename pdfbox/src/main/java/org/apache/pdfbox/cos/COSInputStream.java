@@ -18,7 +18,6 @@
 package org.apache.pdfbox.cos;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,9 +27,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.fontbox.util.OpenByteArrayOutputStream;
 import org.apache.pdfbox.filter.DecodeOptions;
 import org.apache.pdfbox.filter.DecodeResult;
 import org.apache.pdfbox.filter.Filter;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.io.RandomAccess;
 import org.apache.pdfbox.io.RandomAccessInputStream;
 import org.apache.pdfbox.io.RandomAccessOutputStream;
@@ -62,7 +63,6 @@ public final class COSInputStream extends FilterInputStream
     static COSInputStream create(List<Filter> filters, COSDictionary parameters, InputStream in,
                                  ScratchFile scratchFile, DecodeOptions options) throws IOException
     {
-        InputStream input = in;
         if (filters.isEmpty())
         {
             return new COSInputStream(in, Collections.<DecodeResult>emptyList());
@@ -78,32 +78,47 @@ public final class COSInputStream extends FilterInputStream
             }
         }
         // apply filters
-        for (int i = 0; i < filters.size(); i++)
+        InputStream input = in;
+        if (scratchFile != null)
         {
-            if (scratchFile != null)
+            for (int i = 0; i < filters.size(); i++)
             {
-                // scratch file
-                final RandomAccess buffer = scratchFile.createBuffer();
-                DecodeResult result = filters.get(i).decode(input, new RandomAccessOutputStream(buffer), parameters, i, options);
-                results.add(result);
-                input = new RandomAccessInputStream(buffer)
-                {
-                    @Override
-                    public void close() throws IOException
-                    {
-                        buffer.close();
+                // initial input stream must only be closed by us if we have a replacement.
+                // all other ones must  closed by us in case of errors.
+                InputStream previous = i == 0 ? null : input;
+                try {
+                    // scratch file
+                    RandomAccess buffer = scratchFile.createBuffer();
+                    try {
+                        results.add(filters.get(i).decode(input, new RandomAccessOutputStream(buffer), parameters, i, options));
+                        input = new RandomAccessInputStream(buffer, true);
+                        buffer = null;
                     }
-                };
-            }
-            else
-            {
-                // in-memory
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                DecodeResult result = filters.get(i).decode(input, output, parameters, i, options);
-                results.add(result);
-                input = new ByteArrayInputStream(output.toByteArray());
+                    finally {
+                        IOUtils.closeQuietly(buffer);
+                    }
+                }
+                finally {
+                    IOUtils.closeQuietly(previous);
+                }
             }
         }
+        else
+        {
+            // in-memory
+            for (int i = 0; i < filters.size(); i++)
+            {
+                OpenByteArrayOutputStream output = OpenByteArrayOutputStream.estimate(in.available());
+                results.add(filters.get(i).decode(input, output, parameters, i, options));
+                input = new ByteArrayInputStream(output.array(), 0, output.size());
+            }
+        }
+        
+        // Note: the initial input stream has a no-op close() method (see COSStream),
+        // but for the sake of clean code we assume the caller it in case of exceptions happening in this method.
+        // That means we need to close input in case of successfully decoding it.
+        IOUtils.closeQuietly(in);
+        
         return new COSInputStream(input, results);
     }
 

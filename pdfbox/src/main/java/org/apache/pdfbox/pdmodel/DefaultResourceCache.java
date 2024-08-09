@@ -59,6 +59,17 @@ public class DefaultResourceCache implements ResourceCache
     private final Map<COSObject, SoftReference<PDPropertyList>> properties =
             new HashMap<COSObject, SoftReference<PDPropertyList>>();
 
+    public void clear()
+    {
+        fonts.clear();
+        colorSpaces.clear();
+        xobjects.clear();
+        extGStates.clear();
+        shadings.clear();
+        patterns.clear();
+        properties.clear();
+    }
+
     @Override
     public PDFont getFont(COSObject indirect) throws IOException
     {

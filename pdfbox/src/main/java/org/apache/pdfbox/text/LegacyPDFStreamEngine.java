@@ -26,7 +26,7 @@ import org.apache.commons.logging.LogFactory;
 
 import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.fontbox.util.BoundingBox;
-
+import org.apache.fontbox.util.Bytes;
 import org.apache.pdfbox.contentstream.PDFStreamEngine;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.font.encoding.GlyphList;
@@ -286,8 +286,7 @@ class LegacyPDFStreamEngine extends PDFStreamEngine
         {
             if (font instanceof PDSimpleFont)
             {
-                char c = (char) code;
-                unicodeMapping = new String(new char[] { c });
+                unicodeMapping = Bytes.toString((char) code);
             }
             else
             {

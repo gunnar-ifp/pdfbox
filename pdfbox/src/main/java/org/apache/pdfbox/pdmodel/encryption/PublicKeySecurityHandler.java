@@ -428,7 +428,7 @@ public final class PublicKeySecurityHandler extends SecurityHandler
         COSArray array = new COSArray();
         for (byte[] recipient : recipients)
         {
-            array.add(new COSString(recipient));
+            array.add(COSString.copy(recipient));
         }
         cryptFilterDictionary.getCOSObject().setItem(COSName.RECIPIENTS, array);
         array.setDirect(true);

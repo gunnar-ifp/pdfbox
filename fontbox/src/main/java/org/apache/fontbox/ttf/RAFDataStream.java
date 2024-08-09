@@ -16,6 +16,7 @@
  */
 package org.apache.fontbox.ttf;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -65,19 +66,6 @@ class RAFDataStream extends TTFDataStream
     }
     
     /**
-     * Read a signed short.
-     * 
-     * @return An signed short.
-     * @throws IOException If there is an error reading the data.
-     * @see RandomAccessFile#readShort()
-     */
-    @Override
-    public short readSignedShort() throws IOException
-    {
-        return raf.readShort();
-    }
-    
-    /**
      * Get the current position in the stream.
      * @return The current position in the stream.
      * @throws IOException If an error occurs while reading the stream.
@@ -115,26 +103,19 @@ class RAFDataStream extends TTFDataStream
         return raf.read();
     }
     
-    /**
-     * Read an unsigned short.
-     * 
-     * @return An unsigned short.
-     * @throws IOException If there is an error reading the data.
-     * @see RandomAccessFile#readUnsignedShort()
-     */
+    
     @Override
-    public int readUnsignedShort() throws IOException
+    public short readShort() throws IOException, EOFException
     {
-        return raf.readUnsignedShort();
+        return raf.readShort();
     }
     
-    /**
-     * Read a signed 64-bit integer.
-     * 
-     * @return eight bytes interpreted as a long.
-     * @throws IOException If there is an error reading the data.
-     * @see RandomAccessFile#readLong()    
-     */
+    @Override
+    public int readInt() throws IOException, EOFException
+    {
+        return raf.readInt();
+    }
+    
     @Override
     public long readLong() throws IOException
     {

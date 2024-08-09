@@ -274,7 +274,7 @@ public class PDEncryption implements COSObjectable
      */
     public void setOwnerKey(byte[] o) throws IOException
     {
-        dictionary.setItem(COSName.O, new COSString(o));
+        dictionary.setItem(COSName.O, COSString.copy(o));
     }
 
     /**
@@ -304,7 +304,7 @@ public class PDEncryption implements COSObjectable
      */
     public void setUserKey(byte[] u) throws IOException
     {
-        dictionary.setItem(COSName.U, new COSString(u));
+        dictionary.setItem(COSName.U, COSString.copy(u));
     }
 
     /**
@@ -334,7 +334,7 @@ public class PDEncryption implements COSObjectable
      */
     public void setOwnerEncryptionKey(byte[] oe) throws IOException
     {
-        dictionary.setItem( COSName.OE, new COSString(oe) );
+        dictionary.setItem( COSName.OE, COSString.copy(oe) );
     }
 
     /**
@@ -364,7 +364,7 @@ public class PDEncryption implements COSObjectable
      */
     public void setUserEncryptionKey(byte[] ue) throws IOException
     {
-        dictionary.setItem( COSName.UE, new COSString(ue) );
+        dictionary.setItem( COSName.UE, COSString.copy(ue) );
     }
 
     /**
@@ -436,7 +436,7 @@ public class PDEncryption implements COSObjectable
         COSArray array = new COSArray();
         for (byte[] recipient : recipients)
         {
-            COSString recip = new COSString(recipient);
+            COSString recip = COSString.copy(recipient);
             array.add(recip);
         }
         dictionary.setItem(COSName.RECIPIENTS, array);
@@ -610,7 +610,7 @@ public class PDEncryption implements COSObjectable
      */
     public void setPerms(byte[] perms) throws IOException
     {
-        dictionary.setItem( COSName.PERMS, new COSString(perms) );
+        dictionary.setItem( COSName.PERMS, COSString.copy(perms) );
     }
 
     /**

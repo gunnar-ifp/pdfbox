@@ -286,6 +286,7 @@ public class PDFRenderer
             throws IOException
     {
         PDPage page = pageTree.get(pageIndex);
+        if ( document.getResourceCache() != null ) document.getResourceCache().startPage(page);
 
         PDRectangle cropBox = page.getCropBox();
         float widthPt = cropBox.getWidth();
@@ -355,6 +356,7 @@ public class PDFRenderer
         drawer.drawPage(g, cropBox);
         
         g.dispose();
+        if ( document.getResourceCache()!=null ) document.getResourceCache().endPage();
 
         if (image.getType() != imageType.toBufferedImageType())
         {

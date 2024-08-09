@@ -30,11 +30,13 @@ import org.apache.fontbox.ttf.CmapLookup;
 import org.apache.fontbox.ttf.TTFParser;
 import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.fontbox.util.BoundingBox;
+import org.apache.fontbox.util.Bytes;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.util.Vector;
 
@@ -179,6 +181,12 @@ public class PDType0Font extends PDFont implements PDVectorFont
      */
     public PDType0Font(COSDictionary fontDictionary) throws IOException
     {
+    	this(fontDictionary, null);
+    }
+    
+    
+    public PDType0Font(COSDictionary fontDictionary, ResourceCache cache) throws IOException
+    {
         super(fontDictionary);
         COSBase base = dict.getDictionaryObject(COSName.DESCENDANT_FONTS);
         if (!(base instanceof COSArray))
@@ -200,7 +208,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
         {
             throw new IOException("Missing or wrong type in descendant font dictionary");
         }
-        descendantFont = PDFontFactory.createDescendantFont((COSDictionary) descendantFontDictBase, this);
+        descendantFont = PDFontFactory.createDescendantFont((COSDictionary) descendantFontDictBase, this, cache);
         readEncoding();
         fetchCMapUCS2();
     }
@@ -528,10 +536,10 @@ public class PDType0Font extends PDFont implements PDVectorFont
                             // PDCIDFontType2.codeToGID() which would bring a stackoverflow
                             gid = descendantFont.codeToCID(code);
                         }
-                        List<Integer> codes = cmap.getCharCodes(gid);
-                        if (codes != null && !codes.isEmpty())
+                        int codes = cmap.getFirstCharCode(gid);
+                        if ( codes != -1 )
                         {
-                            return Character.toString((char) (int) codes.get(0));
+                            return Bytes.toString(codes);
                         }
                     }
                 }

@@ -31,6 +31,7 @@ import org.apache.fontbox.ttf.OpenTypeFont;
 import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.fontbox.util.BoundingBox;
 import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.pdmodel.ResourceCache;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.util.Matrix;
@@ -45,7 +46,7 @@ public class PDCIDFontType2 extends PDCIDFont
     private static final Log LOG = LogFactory.getLog(PDCIDFontType2.class);
 
     private final TrueTypeFont ttf;
-    private final int[] cid2gid;
+    private final char[] cid2gid;
     private final boolean isEmbedded;
     private final boolean isDamaged;
     private final CmapLookup cmap; // may be null
@@ -62,7 +63,7 @@ public class PDCIDFontType2 extends PDCIDFont
      */
     public PDCIDFontType2(COSDictionary fontDictionary, PDType0Font parent) throws IOException
     {
-        this(fontDictionary, parent, null);
+        this(fontDictionary, parent, null, null);
     }
     
     /**
@@ -74,6 +75,12 @@ public class PDCIDFontType2 extends PDCIDFont
      * @throws IOException
      */
     public PDCIDFontType2(COSDictionary fontDictionary, PDType0Font parent, TrueTypeFont trueTypeFont) throws IOException
+    {
+    	this(fontDictionary, parent, trueTypeFont, null);
+    }
+    
+    
+    public PDCIDFontType2(COSDictionary fontDictionary, PDType0Font parent, TrueTypeFont trueTypeFont, ResourceCache cache) throws IOException
     {
         super(fontDictionary, parent);
 
@@ -105,24 +112,32 @@ public class PDCIDFontType2 extends PDCIDFont
             }
             if (stream != null)
             {
-                try
-                {
-                    // embedded OTF or TTF
-                    OTFParser otfParser = new OTFParser(true);
-                    OpenTypeFont otf = otfParser.parse(stream.createInputStream());
-                    ttfFont = otf;
-    
-                    if (otf.isPostScript())
-                    {
-                        // PDFBOX-3344 contains PostScript outlines instead of TrueType
-                        fontIsDamaged = true;
-                        LOG.warn("Found CFF/OTF but expected embedded TTF font " + fd.getFontName());
-                    }
+                if ( cache != null ) {
+                    ttfFont = (TrueTypeFont)cache.getBaseFont(stream);
                 }
-                catch (IOException e)
-                {
-                    fontIsDamaged = true;
-                    LOG.warn("Could not read embedded OTF for font " + getBaseFont(), e);
+
+                if ( ttfFont == null ) {
+                    try
+                    {
+                        // embedded OTF or TTF
+                        // TODO: old code with inputstream never closed it. Intentionally?
+                        OpenTypeFont otf = new OTFParser(true, false).parse(stream.toByteArray());
+                        if (otf.isPostScript())
+                        {
+                            // PDFBOX-3344 contains PostScript outlines instead of TrueType
+                            fontIsDamaged = true;
+                            LOG.warn("Found CFF/OTF but expected embedded TTF font " + fd.getFontName());
+                        }
+                        else if ( cache!=null ) {
+                            cache.put(stream, otf);
+                        }
+                        ttfFont = otf;
+                    }
+                    catch (IOException e)
+                    {
+                        fontIsDamaged = true;
+                        LOG.warn("Could not read embedded OTF for font " + getBaseFont(), e);
+                    }
                 }
             }
             isEmbedded = ttfFont != null;

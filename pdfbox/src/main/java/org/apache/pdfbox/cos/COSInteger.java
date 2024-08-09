@@ -30,12 +30,12 @@ public final class COSInteger extends COSNumber
     /**
      * The lowest integer to be kept in the {@link #STATIC} array.
      */
-    private static final int LOW = -100;
+    private static final int LOW = Math.max(-0x10000, Math.min(-100, Integer.getInteger("org.apache.pdfbox.cos.COSInteger.low", -256)));
 
     /**
      * The highest integer to be kept in the {@link #STATIC} array.
      */
-    private static final int HIGH = 256;
+    private static final int HIGH = Math.min(0x10000, Math.max(256, Integer.getInteger("org.apache.pdfbox.cos.COSInteger.high", 1024)));
 
     /**
      * Static instances of all COSIntegers in the range from {@link #LOW}
@@ -70,12 +70,12 @@ public final class COSInteger extends COSNumber
     /**
      * Constant for an out of range value which is bigger than Log.MAX_VALUE.
      */
-    protected static final COSInteger OUT_OF_RANGE_MAX = getInvalid(true);
+    protected static final COSInteger OUT_OF_RANGE_MAX = new COSInteger(Long.MAX_VALUE, false);
 
     /**
      * Constant for an out of range value which is smaller than Log.MIN_VALUE.
      */
-    protected static final COSInteger OUT_OF_RANGE_MIN = getInvalid(false);
+    protected static final COSInteger OUT_OF_RANGE_MIN = new COSInteger(Long.MIN_VALUE, false);
 
     /**
      * Returns a COSInteger instance with the given value.
@@ -88,21 +88,13 @@ public final class COSInteger extends COSNumber
         if (LOW <= val && val <= HIGH)
         {
             int index = (int) val - LOW;
+            COSInteger i = STATIC[index];
             // no synchronization needed
-            if (STATIC[index] == null)
-            {
-                STATIC[index] = new COSInteger(val, true);
-            }
-            return STATIC[index];
+            return i == null ? STATIC[index] = new COSInteger(val, true) : i;
         }
         return new COSInteger(val, true);
     }
 
-    private static COSInteger getInvalid(boolean maxValue)
-    {
-        return maxValue ? new COSInteger(Long.MAX_VALUE, false)
-                : new COSInteger(Long.MIN_VALUE, false);
-    }
 
     private final long value;
     private final boolean isValid;

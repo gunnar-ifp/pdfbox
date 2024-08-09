@@ -71,22 +71,22 @@ public final class PDFontFactory
             COSBase fd = dictionary.getDictionaryObject(COSName.FONT_DESC);
             if (fd instanceof COSDictionary && ((COSDictionary) fd).containsKey(COSName.FONT_FILE3))
             {
-                return new PDType1CFont(dictionary);
+                return new PDType1CFont(dictionary, resourceCache);
             }
-            return new PDType1Font(dictionary);
+            return new PDType1Font(dictionary, resourceCache);
         }
         else if (COSName.MM_TYPE1.equals(subType))
         {
             COSBase fd = dictionary.getDictionaryObject(COSName.FONT_DESC);
             if (fd instanceof COSDictionary && ((COSDictionary) fd).containsKey(COSName.FONT_FILE3))
             {
-                return new PDType1CFont(dictionary);
+                return new PDType1CFont(dictionary, resourceCache);
             }
-            return new PDMMType1Font(dictionary);
+            return new PDMMType1Font(dictionary, resourceCache);
         }
         else if (COSName.TRUE_TYPE.equals(subType))
         {
-            return new PDTrueTypeFont(dictionary);
+            return new PDTrueTypeFont(dictionary, resourceCache);
         }
         else if (COSName.TYPE3.equals(subType))
         {
@@ -94,7 +94,7 @@ public final class PDFontFactory
         }
         else if (COSName.TYPE0.equals(subType))
         {
-            return new PDType0Font(dictionary);
+            return new PDType0Font(dictionary, resourceCache);
         }
         else if (COSName.CID_FONT_TYPE0.equals(subType))
         {
@@ -123,6 +123,13 @@ public final class PDFontFactory
     static PDCIDFont createDescendantFont(COSDictionary dictionary, PDType0Font parent)
             throws IOException
     {
+    	return createDescendantFont(dictionary, parent, null);
+    }
+    
+    
+    static PDCIDFont createDescendantFont(COSDictionary dictionary, PDType0Font parent, ResourceCache cache)
+            throws IOException
+    {
         COSName type = dictionary.getCOSName(COSName.TYPE, COSName.FONT);
         if (!COSName.FONT.equals(type))
         {
@@ -136,7 +143,7 @@ public final class PDFontFactory
         }
         else if (COSName.CID_FONT_TYPE2.equals(subType))
         {
-            return new PDCIDFontType2(dictionary, parent);
+            return new PDCIDFontType2(dictionary, parent, null, cache);
         }
         else
         {

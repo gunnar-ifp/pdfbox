@@ -384,30 +384,44 @@ public class COSStream extends COSDictionary implements Closeable
     }
     
     /**
+     * This will copy the stream into a byte array.
+     * 
+     * @return The byte array of the filteredStream.
+     * @throws IOException if an I/O error occurs.
+     */
+    public byte[] toByteArray() throws IOException
+    {
+        InputStream is = null;
+        try
+        {
+            is = createInputStream();
+            return IOUtils.toByteArray(is);
+        } 
+        finally
+        {
+            if (is != null)
+            {
+                is.close();
+            }
+        }
+    }
+    
+    /**
      * Returns the contents of the stream as a PDF "text string".
      * 
      * @return the text string representation of this stream.
      */
     public String toTextString()
     {
-        InputStream input = null;
-        byte[] array;
         try
         {
-            input = createInputStream();
-            array = IOUtils.toByteArray(input);
+            return COSString.wrap(toByteArray()).getString();
         }
         catch (IOException e)
         {
             LOG.debug("An exception occurred trying to get the content - returning empty string instead", e);
             return "";
         }
-        finally
-        {
-            IOUtils.closeQuietly(input);
-        }
-        COSString string = new COSString(array);
-        return string.getString();
     }
     
     @Override

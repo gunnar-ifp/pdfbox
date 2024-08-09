@@ -50,4 +50,11 @@ public class SubstitutingCmapLookup implements CmapLookup
     {
         return cmap.getCharCodes(gsub.getUnsubstitution(gid));
     }
+    
+    
+    @Override
+    public int getFirstCharCode(int gid)
+    {
+        return cmap.getFirstCharCode(gsub.getUnsubstitution(gid));
+    }
 }

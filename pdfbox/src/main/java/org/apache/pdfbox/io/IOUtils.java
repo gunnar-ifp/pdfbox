@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import org.apache.commons.logging.Log;
+import org.apache.fontbox.util.OpenByteArrayOutputStream;
 
 /**
  * This class contains various I/O-related methods.
@@ -48,9 +49,10 @@ public final class IOUtils
      */
     public static byte[] toByteArray(InputStream in) throws IOException
     {
-        ByteArrayOutputStream baout = new ByteArrayOutputStream();
-        copy(in, baout);
-        return baout.toByteArray();
+        try ( OpenByteArrayOutputStream output = OpenByteArrayOutputStream.estimate(in.available())) {
+            output.readFully(in);
+            return output.finished();
+        }
     }
 
     /**

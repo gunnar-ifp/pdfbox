@@ -40,6 +40,7 @@ import javax.imageio.ImageIO;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.util.Cleaner;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -67,7 +68,7 @@ import org.apache.pdfbox.util.filetypedetector.FileTypeDetector;
  * @author John Hewson
  * @author Ben Litchfield
  */
-public final class PDImageXObject extends PDXObject implements PDImage
+public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
 {
     /**
      * Log instance.
@@ -425,6 +426,14 @@ public final class PDImageXObject extends PDXObject implements PDImage
         throw new IllegalArgumentException("Image type " + fileType + " not supported: " + name);
     }
 
+    
+    @Override
+    public Cleanable cleanable()
+    {
+        final SoftReference<BufferedImage> ref = cachedImage;
+        return ref == null ? null : ref::clear;
+    }
+    
     /**
      * Returns the metadata associated with this XObject, or null if there is none.
      * @return the metadata associated with this object.

@@ -36,10 +36,20 @@ public interface CmapLookup
 
     /**
      * Returns all possible character codes for the given gid, or null if there is none.
-     *
      * @param gid glyph id
      * @return a list with all character codes the given gid maps to
      */
     List<Integer> getCharCodes(int gid);
+    
+    /**
+     * Returns "the first" of all possible character codes for the given gid, or {@code -1} if there is none.
+     * @param gid glyph id
+     * @return The character codepoint or {@code -1}
+     */
+    default int getFirstCharCode(int gid)
+    {
+        List<Integer> codes = getCharCodes(gid);
+        return codes==null || codes.isEmpty() ? -1 : codes.get(0);
+    }
 
 }

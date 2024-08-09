@@ -27,15 +27,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.util.BoundingBox;
+import org.apache.fontbox.util.Cleaner;
 
 /**
  * A TrueType font file.
  * 
  * @author Ben Litchfield
  */
-public class TrueTypeFont implements FontBoxFont, Closeable
+public class TrueTypeFont implements FontBoxFont, Closeable, Cleaner
 {
     private float version;
     private int numberOfGlyphs = -1;
@@ -58,6 +60,9 @@ public class TrueTypeFont implements FontBoxFont, Closeable
     @Override
     public void close() throws IOException
     {
+        // subsetting needs original data, so it will still work:
+        // RAF will read from file
+        // MemoryTTFDataStream never unsets the byte array, even in close
         data.close();
     }
 
@@ -65,10 +70,16 @@ public class TrueTypeFont implements FontBoxFont, Closeable
     protected void finalize() throws Throwable
     {
         super.finalize();
-        // PDFBOX-4963: risk of memory leaks due to SoftReference in FontCache 
+        // PDFBOX-4963: risk of memory leaks due to SoftReference in FontCache
         close();
     }
 
+    @Override
+    public Cleanable cleanable()
+    {
+        return Cleaner.silent(data::close);
+    }
+    
     /**
      * @return Returns the version.
      */

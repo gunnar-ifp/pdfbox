@@ -23,11 +23,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.fontbox.util.Charsets;
+import org.apache.fontbox.util.Bytes;
 
 /**
  * Parses a CMap stream.
@@ -39,14 +40,7 @@ public class CMapParser
     private static final String MARK_END_OF_DICTIONARY = ">>";
     private static final String MARK_END_OF_ARRAY = "]";
 
-    private final static String[] ISO_8859_1 = new String[256];
-    static {
-        for ( int i = 0; i < 256; i++ ) ISO_8859_1[i] = String.valueOf((char)i); //.intern();
-    }
-    
     private final byte[] tokenParserByteBuffer = new byte[512];
-
-    private boolean strictMode = false;
 
     /**
      * Creates a new instance of CMapParser.
@@ -58,11 +52,12 @@ public class CMapParser
     /**
      * Creates a new instance of CMapParser.
      * 
-     * @param strictMode activates the strict mode used for inline CMaps
+     * @param strictMode activates the strict mode used for inline CMaps (unused)
+     * @deprecated
      */
+    @Deprecated
     public CMapParser(boolean strictMode)
     {
-        this.strictMode = strictMode;
     }
 
     /**
@@ -103,7 +98,6 @@ public class CMapParser
         {
             input = getExternalCMap(name);
             // deactivate strict mode
-            strictMode = false;
             return parse(input);
         }
         finally
@@ -145,27 +139,28 @@ public class CMapParser
                     {
                         parseUsecmap((LiteralName) previousToken, result);
                     }
-                    else if (previousToken instanceof Number)
+                    else if (previousToken instanceof Integer)
                     {
+                        int count = ((Number)previousToken).intValue();
                         if (op.op.equals("begincodespacerange"))
                         {
-                            parseBegincodespacerange((Number) previousToken, cmapStream, result);
+                            parseBegincodespacerange(count, cmapStream, result);
                         }
                         else if (op.op.equals("beginbfchar"))
                         {
-                            parseBeginbfchar((Number) previousToken, cmapStream, result);
+                            parseBeginbfchar(count, cmapStream, result);
                         }
                         else if (op.op.equals("beginbfrange"))
                         {
-                            parseBeginbfrange((Number) previousToken, cmapStream, result);
+                            parseBeginbfrange(count, cmapStream, result);
                         }
                         else if (op.op.equals("begincidchar"))
                         {
-                            parseBegincidchar((Number) previousToken, cmapStream, result);
+                            parseBegincidchar(count, cmapStream, result);
                         }
-                        else if (op.op.equals("begincidrange") && previousToken instanceof Integer)
+                        else if (op.op.equals("begincidrange"))
                         {
-                            parseBegincidrange((Integer) previousToken, cmapStream, result);
+                            parseBegincidrange(count, cmapStream, result);
                         }
                     }
                 }
@@ -269,9 +264,9 @@ public class CMapParser
         }
     }
 
-    private void parseBegincodespacerange(Number cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
+    private void parseBegincodespacerange(int cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
     {
-        for (int j = 0; j < cosCount.intValue(); j++)
+        for (int j = 0; j < cosCount; j++)
         {
             Object nextToken = parseNextToken(cmapStream);
             if (nextToken instanceof Operator)
@@ -283,8 +278,10 @@ public class CMapParser
             {
                 throw new IOException("start range missing");
             }
-            byte[] startRange = (byte[]) nextToken;
-            byte[] endRange = (byte[]) parseNextToken(cmapStream);
+            
+            // no check since different array lengths are supported
+            final byte[] startRange = (byte[]) nextToken;
+            final byte[] endRange = (byte[]) parseNextToken(cmapStream);
             try
             {
                 result.addCodespaceRange(new CodespaceRange(startRange, endRange));
@@ -296,9 +293,31 @@ public class CMapParser
         }
     }
 
-    private void parseBeginbfchar(Number cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
+    private void parseBegincidchar(int cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
     {
-        for (int j = 0; j < cosCount.intValue(); j++)
+        for (int j = 0; j < cosCount; j++)
+        {
+            Object nextToken = parseNextToken(cmapStream);
+            if (nextToken instanceof Operator)
+            {
+                checkExpectedOperator((Operator) nextToken, "endcidchar", "cidchar");
+                break;
+            }
+            if (!(nextToken instanceof byte[]))
+            {
+                throw new IOException("input code missing");
+            }
+            
+            final byte[] code = (byte[]) nextToken;
+            final int cid  = (Integer) parseNextToken(cmapStream);
+            result.addCIDMapping(code, cid);
+        }
+    }
+
+
+    private void parseBeginbfchar(int cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
+    {
+        for (int j = 0; j < cosCount; j++)
         {
             Object nextToken = parseNextToken(cmapStream);
             if (nextToken instanceof Operator)
@@ -310,17 +329,15 @@ public class CMapParser
             {
                 throw new IOException("input code missing");
             }
-            byte[] inputCode = (byte[]) nextToken;
+            final byte[] code = (byte[]) nextToken;
             nextToken = parseNextToken(cmapStream);
             if (nextToken instanceof byte[])
             {
-                byte[] bytes = (byte[]) nextToken;
-                String value = createStringFromBytes(bytes);
-                result.addCharMapping(inputCode, value);
+                result.addBasefontMapping(code, Bytes.toString((byte[]) nextToken));
             }
             else if (nextToken instanceof LiteralName)
             {
-                result.addCharMapping(inputCode, ((LiteralName) nextToken).name);
+                result.addBasefontMapping(code, ((LiteralName) nextToken).name);
             }
             else
             {
@@ -330,6 +347,7 @@ public class CMapParser
         }
     }
 
+    
     private void parseBegincidrange(int numberOfLines, PushbackInputStream cmapStream, CMap result) throws IOException
     {
         for (int n = 0; n < numberOfLines; n++)
@@ -340,161 +358,118 @@ public class CMapParser
                 checkExpectedOperator((Operator) nextToken, "endcidrange", "cidrange");
                 break;
             }
+
             if (!(nextToken instanceof byte[]))
             {
-                throw new IOException("start range missing");
+                throw new IOException("cidrange start code missing");
             }
-            byte[] startCode = (byte[]) nextToken;
-            int start = createIntFromBytes(startCode);
-            byte[] endCode = (byte[]) parseNextToken(cmapStream);
-            int end = createIntFromBytes(endCode);
-            int mappedCode = (Integer) parseNextToken(cmapStream);
-            if (startCode.length <= 2 && endCode.length <= 2)
+            final byte[] startCode = (byte[]) nextToken;
+            final byte[] endCode = (byte[]) parseNextToken(cmapStream);
+            final int start = Bytes.getUnsigned(startCode);
+            final int end = Bytes.getUnsigned(endCode);
+
+            if ( startCode.length > 4 ) {
+                throw new IOException("cidrange start code length too big");
+            }
+            if ( startCode.length != endCode.length ) {
+                throw new IOException("cidrange start / end code length mismatch");
+            }
+            if ( start > end ) {
+                // TODO: why no exception
+                break; // PDFBOX-4550: likely corrupt stream
+            }
+
+            final int cid = (Integer) parseNextToken(cmapStream);
+            
+            // some CMaps are using CID ranges to map single values
+            if ( start == end )
             {
-                // some CMaps are using CID ranges to map single values
-                if (end == start)
+                result.addCIDMapping(startCode, cid);
+            }
+            else
+            {
+                result.addCIDRange(startCode, endCode, cid);
+            }
+        }
+    }
+
+
+    private void parseBeginbfrange(int cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
+    {
+        for (int j = 0; j < cosCount; j++)
+        {
+            Object nextToken = parseNextToken(cmapStream);
+            if (nextToken instanceof Operator)
+            {
+                checkExpectedOperator((Operator) nextToken, "endbfrange", "bfrange");
+                break;
+            }
+            
+            if (!(nextToken instanceof byte[]))
+            {
+                throw new IOException("fbrange start code missing");
+            }
+            final byte[] startCode = (byte[]) nextToken;
+            final byte[] endCode = (byte[]) parseNextToken(cmapStream);
+            final int start = Bytes.getUnsigned(startCode);
+            final int length = Bytes.getUnsigned(endCode) - start + 1;
+            
+            if ( startCode.length > 2 ) {
+                throw new IOException("fbrange start code length too big");
+            }
+            if ( startCode.length != endCode.length ) {
+                throw new IOException("cidrange start / end code length mismatch");
+            }
+            if ( length <= 0 ) {
+                // TODO: why no exception
+                break; // PDFBOX-4550: likely corrupt stream
+            }
+            
+            nextToken = parseNextToken(cmapStream);
+            if (nextToken instanceof List<?>)
+            {
+                @SuppressWarnings("unchecked")
+                List<byte[]> array = (List<byte[]>) nextToken;
+                if ( array.size() < length ) continue;
+                
+                for ( int i = 0; i < length; i++ )
                 {
-                    result.addCIDMapping(mappedCode, start);
+                    if ( i > 0 ) Bytes.increment(startCode);
+                    
+                    byte[] utf16 = array.get(i);
+                    if ( utf16.length > 0 ) {
+                        result.addBasefontMapping(Bytes.copy(startCode), Bytes.toString(utf16));
+                    }
+                }
+            }
+            else if (nextToken instanceof byte[])
+            {
+                byte[] utf16 = (byte[]) nextToken;
+                // PDFBOX-3450: ignore <>
+                if ( utf16.length == 0 ) continue;
+                
+                // PDFBOX-4720:
+                // some pdfs use the malformed bfrange <0000> <FFFF> <0000>. Add support by adding a identity
+                // mapping for the whole range instead of cutting it after 255 entries
+                if ( length == 0x10000 && utf16.length == 2 && Bytes.getChar(utf16) == 0 )
+                {
+                    for ( int i = 0; i < length; i += 256 )
+                    {
+                        startCode[0] = utf16[0] = utf16[1] = (byte) (i >> 8);
+                        startCode[1] = utf16[1] = (byte) 0x00;
+                        endCode  [1] = (byte)0xff;
+                        result.addBasefontRange(startCode, endCode, utf16);
+                    }
                 }
                 else
                 {
-                    result.addCIDRange((char) start, (char) end, mappedCode);
+                    result.addBasefontRange(startCode, endCode, utf16);
                 }
             }
             else
             {
-                // TODO Is this even possible?
-                int endOfMappings = mappedCode + end - start;
-                while (mappedCode <= endOfMappings)
-                {
-                    int mappedCID = createIntFromBytes(startCode);
-                    result.addCIDMapping(mappedCode++, mappedCID);
-                    increment(startCode, startCode.length - 1, false);
-                }
+                // PDFBOX-3807: ignore null
             }
-        }
-    }
-
-    private void parseBegincidchar(Number cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
-    {
-        for (int j = 0; j < cosCount.intValue(); j++)
-        {
-            Object nextToken = parseNextToken(cmapStream);
-            if (nextToken instanceof Operator)
-            {
-                checkExpectedOperator((Operator) nextToken, "endcidchar", "cidchar");
-                break;
-            }
-            if (!(nextToken instanceof byte[]))
-            {
-                throw new IOException("start code missing");
-            }
-            byte[] inputCode = (byte[]) nextToken;
-            int mappedCode = (Integer) parseNextToken(cmapStream);
-            int mappedCID = createIntFromBytes(inputCode);
-            result.addCIDMapping(mappedCode, mappedCID);
-        }
-    }
-
-    private void parseBeginbfrange(Number cosCount, PushbackInputStream cmapStream, CMap result) throws IOException
-    {
-        for (int j = 0; j < cosCount.intValue(); j++)
-        {
-            Object nextToken = parseNextToken(cmapStream);
-            if (nextToken instanceof Operator)
-            {
-                checkExpectedOperator((Operator) nextToken, "endbfrange", "bfrange");
-                break;
-            }
-            if (!(nextToken instanceof byte[]))
-            {
-                throw new IOException("start code missing");
-            }
-            byte[] startCode = (byte[]) nextToken;
-            nextToken = parseNextToken(cmapStream);
-            if (nextToken instanceof Operator)
-            {
-                checkExpectedOperator((Operator) nextToken, "endbfrange", "bfrange");
-                break;
-            }
-            if (!(nextToken instanceof byte[]))
-            {
-                throw new IOException("end code missing");
-            }
-            byte[] endCode = (byte[]) nextToken;
-            int start = CMap.toInt(startCode, startCode.length);
-            int end = CMap.toInt(endCode, endCode.length);
-            // end has to be bigger than start or equal
-            if (end < start)
-            {
-                // PDFBOX-4550: likely corrupt stream
-                break;
-            }
-            nextToken = parseNextToken(cmapStream);
-            if (nextToken instanceof List<?>)
-            {
-                List<byte[]> array = (List<byte[]>) nextToken;
-                // ignore empty and malformed arrays
-                if (!array.isEmpty() && array.size() >= end - start)
-                {
-                    addMappingFrombfrange(result, startCode, array);
-                }
-            }
-            // PDFBOX-3807: ignore null
-            else if (nextToken instanceof byte[])
-            {
-                byte[] tokenBytes = (byte[]) nextToken;
-                // PDFBOX-3450: ignore <>
-                if (tokenBytes.length > 0)
-                {
-                    // PDFBOX-4720:
-                    // some pdfs use the malformed bfrange <0000> <FFFF> <0000>. Add support by adding a identity
-                    // mapping for the whole range instead of cutting it after 255 entries
-                    // TODO find a more efficient method to represent all values for a identity mapping
-                    if (tokenBytes.length == 2 && start == 0 && end == 0xffff
-                            && tokenBytes[0] == 0 && tokenBytes[1] == 0)
-                    {
-                        for (int i = 0; i < 256; i++)
-                        {
-                            startCode[0] = (byte) i;
-                            startCode[1] = 0;
-                            tokenBytes[0] = (byte) i;
-                            tokenBytes[1] = 0;
-                            addMappingFrombfrange(result, startCode, 256, tokenBytes);
-                        }
-                    }
-                    else
-                    {
-                        addMappingFrombfrange(result, startCode, end - start + 1, tokenBytes);
-                    }
-                }
-            }
-        }
-    }
-
-    private void addMappingFrombfrange(CMap cmap, byte[] startCode, List<byte[]> tokenBytesList)
-    {
-        for (byte[] tokenBytes : tokenBytesList)
-        {
-            String value = createStringFromBytes(tokenBytes);
-            cmap.addCharMapping(startCode, value);
-            increment(startCode, startCode.length - 1, false);
-        }
-    }
-
-    private void addMappingFrombfrange(CMap cmap, byte[] startCode, int values,
-            byte[] tokenBytes)
-    {
-        for (int i = 0; i < values; i++)
-        {
-            String value = createStringFromBytes(tokenBytes);
-            cmap.addCharMapping(startCode, value);
-            if (!increment(tokenBytes, tokenBytes.length - 1, strictMode))
-            {
-                // overflow detected -> stop adding further mappings
-                break;
-            }
-            increment(startCode, startCode.length - 1, false);
         }
     }
 
@@ -649,9 +624,7 @@ public class CMapParser
                     tokenParserByteBuffer[bufferIndex] += intValue;
                     theNextByte = is.read();
                 }
-                byte[] finalResult = new byte[bufferIndex + 1];
-                System.arraycopy(tokenParserByteBuffer, 0, finalResult, 0, bufferIndex + 1);
-                retval = finalResult;
+                retval = Arrays.copyOf(tokenParserByteBuffer, bufferIndex + 1);
             }
             break;
         }
@@ -775,37 +748,6 @@ public class CMapParser
             default:
                 return false;
         }
-    }
-
-    private static boolean increment(byte[] data, int position, boolean useStrictMode)
-    {
-        if (position > 0 && data[position]==-1)
-        {
-            // PDFBOX-4661: avoid overflow of the last byte, all following values are undefined
-            // PDFBOX-5090: strict mode has to be used for CMaps within pdfs
-            if (useStrictMode)
-            {
-                return false;
-            }
-            data[position] = 0;
-            increment(data, position - 1, useStrictMode);
-        }
-        else
-        {
-            data[position]++;
-        }
-        return true;
-    }
-
-    private static int createIntFromBytes(byte[] bytes)
-    {
-        int value = bytes[0] & 0xFF;
-        return bytes.length == 2 ? (value << 8) | (bytes[1] & 0xFF) : value;
-    }
-
-    private static String createStringFromBytes(byte[] bytes)
-    {
-        return bytes.length == 1 ? ISO_8859_1[bytes[0] & 0xff] : new String(bytes, Charsets.UTF_16BE);
     }
 
     /**
