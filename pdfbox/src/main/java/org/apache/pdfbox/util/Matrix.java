@@ -16,14 +16,13 @@
  */
 package org.apache.pdfbox.util;
 
-import org.apache.pdfbox.cos.COSArray;
-import org.apache.pdfbox.cos.COSFloat;
-import org.apache.pdfbox.cos.COSNumber;
-
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.util.Arrays;
+
+import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
+import org.apache.pdfbox.cos.COSFloat;
+import org.apache.pdfbox.cos.COSNumber;
 
 /**
  * This class will be used for matrix manipulation.
@@ -32,8 +31,21 @@ import org.apache.pdfbox.cos.COSBase;
  */
 public final class Matrix implements Cloneable
 {
-    public static final int SIZE = 9;
-    private float[] single;
+	/** initial 1 */
+    private float single0 = 1;
+    private float single1 = 0;
+    /** fixed 0 */
+    private final static float single2 = 0;
+    private float single3 = 0;
+    /** initial 1 */
+    private float single4 = 1;
+    /** fixed 0 */
+    private final static float single5 = 0;
+    private float single6 = 0;
+    private float single7 = 0;
+    /** fixed 1 */
+    private final static float single8 = 1;
+    
     private static final float MAX_FLOAT_VALUE = 3.4028235E38f;
 
     /**
@@ -48,18 +60,23 @@ public final class Matrix implements Cloneable
         // sx hy 0
         // hx sy 0
         // tx ty 1
-        single = new float[] { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
     }
-
-    /**
-     * Constructor. This produces a matrix with the given array as data.
-     * The source array is not copied or cloned.
-     */
-    private Matrix(float[] src)
+    
+    private Matrix(Matrix m)
     {
-        single = src;
+        single0 = m.single0;
+        single1 = m.single1;
+//      single2 = m.single2;
+        single3 = m.single3;
+        single4 = m.single4;
+//      single5 = m.single5;
+        single6 = m.single6;
+        single7 = m.single7;
+//      single8 = m.single8;
     }
-
+    
+    
+    
     /**
      * Creates a matrix from a 6-element (a b c d e f) COS array.
      *
@@ -69,14 +86,12 @@ public final class Matrix implements Cloneable
      */
     public Matrix(COSArray array)
     {
-        single = new float[SIZE];
-        single[0] = ((COSNumber)array.getObject(0)).floatValue();
-        single[1] = ((COSNumber)array.getObject(1)).floatValue();
-        single[3] = ((COSNumber)array.getObject(2)).floatValue();
-        single[4] = ((COSNumber)array.getObject(3)).floatValue();
-        single[6] = ((COSNumber)array.getObject(4)).floatValue();
-        single[7] = ((COSNumber)array.getObject(5)).floatValue();
-        single[8] = 1;
+        single0 = ((COSNumber)array.getObject(0)).floatValue();
+        single1 = ((COSNumber)array.getObject(1)).floatValue();
+        single3 = ((COSNumber)array.getObject(2)).floatValue();
+        single4 = ((COSNumber)array.getObject(3)).floatValue();
+        single6 = ((COSNumber)array.getObject(4)).floatValue();
+        single7 = ((COSNumber)array.getObject(5)).floatValue();
     }
 
     /**
@@ -103,14 +118,12 @@ public final class Matrix implements Cloneable
      */
     public Matrix(float a, float b, float c, float d, float e, float f)
     {
-        single = new float[SIZE];
-        single[0] = a;
-        single[1] = b;
-        single[3] = c;
-        single[4] = d;
-        single[6] = e;
-        single[7] = f;
-        single[8] = 1;
+        single0 = a;
+        single1 = b;
+        single3 = c;
+        single4 = d;
+        single6 = e;
+        single7 = f;
     }
 
     /**
@@ -124,14 +137,12 @@ public final class Matrix implements Cloneable
      */
     public Matrix(AffineTransform at)
     {
-        single = new float[SIZE];
-        single[0] = (float)at.getScaleX();
-        single[1] = (float)at.getShearY();
-        single[3] = (float)at.getShearX();
-        single[4] = (float)at.getScaleY();
-        single[6] = (float)at.getTranslateX();
-        single[7] = (float)at.getTranslateY();
-        single[8] = 1;
+        single0 = (float)at.getScaleX();
+        single1 = (float)at.getShearY();
+        single3 = (float)at.getShearX();
+        single4 = (float)at.getScaleY();
+        single6 = (float)at.getTranslateX();
+        single7 = (float)at.getTranslateY();
     }
 
     /**
@@ -173,10 +184,15 @@ public final class Matrix implements Cloneable
     @Deprecated
     public void reset()
     {
-        Arrays.fill(single, 0);
-        single[0] = 1;
-        single[4] = 1;
-        single[8] = 1;
+        single0 = 1;
+        single1 = 0;
+//      single2 = 0;
+        single3 = 0;
+        single4 = 1;
+//      single5 = 0;
+        single6 = 0;
+        single7 = 0;
+//      single8 = 1;
     }
 
     /**
@@ -187,9 +203,9 @@ public final class Matrix implements Cloneable
     public AffineTransform createAffineTransform()
     {
         return new AffineTransform(
-            single[0], single[1],   // m00 m10 = scaleX shearY
-            single[3], single[4],   // m01 m11 = shearX scaleY
-            single[6], single[7] ); // m02 m12 = tx ty
+            single0, single1,   // m00 m10 = scaleX shearY
+            single3, single4,   // m01 m11 = shearX scaleY
+            single6, single7 ); // m02 m12 = tx ty
     }
 
     /**
@@ -201,12 +217,12 @@ public final class Matrix implements Cloneable
     @Deprecated
     public void setFromAffineTransform( AffineTransform af )
     {
-        single[0] = (float)af.getScaleX();
-        single[1] = (float)af.getShearY();
-        single[3] = (float)af.getShearX();
-        single[4] = (float)af.getScaleY();
-        single[6] = (float)af.getTranslateX();
-        single[7] = (float)af.getTranslateY();
+        single0 = (float)af.getScaleX();
+        single1 = (float)af.getShearY();
+        single3 = (float)af.getShearX();
+        single4 = (float)af.getScaleY();
+        single6 = (float)af.getTranslateX();
+        single7 = (float)af.getTranslateY();
     }
 
     /**
@@ -219,7 +235,18 @@ public final class Matrix implements Cloneable
      */
     public float getValue( int row, int column )
     {
-        return single[row*3+column];
+    	switch (row * 3 + column) {
+    		case 0: return single0;
+    		case 1: return single1;
+    		case 2: return single2;
+    		case 3: return single3;
+    		case 4: return single4;
+    		case 5: return single5;
+    		case 6: return single6;
+    		case 7: return single7;
+    		case 8: return single8;
+    		default: throw new IndexOutOfBoundsException(row + ":" + column); 
+    	}
     }
 
     /**
@@ -231,7 +258,19 @@ public final class Matrix implements Cloneable
      */
     public void setValue( int row, int column, float value )
     {
-        single[row*3+column] = value;
+    	switch (row * 3 + column) {
+    		case 0: single0 = value; break;
+    		case 1: single1 = value; break;
+    		case 2: if ( value != single2 ) throw new IllegalArgumentException("m[0][2] is fixed value 0") ; break;
+    		case 3: single3 = value; break;
+    		case 4: single4 = value; break;
+    		case 5: if ( value != single5 ) throw new IllegalArgumentException("m[1][2] is fixed value 0"); break;
+    		case 6: single6 = value; break;
+    		case 7: single7 = value; break;
+    		case 8: if ( value != single8 ) throw new IllegalArgumentException("m[2][2] is fixed value 1"); break;
+    		default: throw new IndexOutOfBoundsException(row + ":" + column); 
+    	}
+    	
     }
 
     /**
@@ -242,15 +281,15 @@ public final class Matrix implements Cloneable
     public float[][] getValues()
     {
         float[][] retval = new float[3][3];
-        retval[0][0] = single[0];
-        retval[0][1] = single[1];
-        retval[0][2] = single[2];
-        retval[1][0] = single[3];
-        retval[1][1] = single[4];
-        retval[1][2] = single[5];
-        retval[2][0] = single[6];
-        retval[2][1] = single[7];
-        retval[2][2] = single[8];
+        retval[0][0] = single0;
+        retval[0][1] = single1;
+        retval[0][2] = single2;
+        retval[1][0] = single3;
+        retval[1][1] = single4;
+        retval[1][2] = single5;
+        retval[2][0] = single6;
+        retval[2][1] = single7;
+        retval[2][2] = single8;
         return retval;
     }
 
@@ -264,15 +303,15 @@ public final class Matrix implements Cloneable
     public double[][] getValuesAsDouble()
     {
         double[][] retval = new double[3][3];
-        retval[0][0] = single[0];
-        retval[0][1] = single[1];
-        retval[0][2] = single[2];
-        retval[1][0] = single[3];
-        retval[1][1] = single[4];
-        retval[1][2] = single[5];
-        retval[2][0] = single[6];
-        retval[2][1] = single[7];
-        retval[2][2] = single[8];
+        retval[0][0] = single0;
+        retval[0][1] = single1;
+        retval[0][2] = single2;
+        retval[1][0] = single3;
+        retval[1][1] = single4;
+        retval[1][2] = single5;
+        retval[2][0] = single6;
+        retval[2][1] = single7;
+        retval[2][2] = single8;
         return retval;
     }
 
@@ -337,7 +376,7 @@ public final class Matrix implements Cloneable
      */
     public Matrix multiply(Matrix other)
     {
-        return multiply(other, new Matrix());
+        return isFinite(multiplyArrays(this, other));
     }
 
     /**
@@ -355,31 +394,26 @@ public final class Matrix implements Cloneable
     @Deprecated
     public Matrix multiply( Matrix other, Matrix result )
     {
-        float[] c = result != null && result != other && result != this ? result.single
-                : new float[SIZE];
-
-        multiplyArrays(single, other.single, c);
-
-        if (!Matrix.isFinite(c[0]) //
-                || !Matrix.isFinite(c[1]) //
-                || !Matrix.isFinite(c[2]) //
-                || !Matrix.isFinite(c[3]) //
-                || !Matrix.isFinite(c[4]) //
-                || !Matrix.isFinite(c[5]) //
-                || !Matrix.isFinite(c[6]) //
-                || !Matrix.isFinite(c[7]) //
-                || !Matrix.isFinite(c[8]))
+    	if ( result==null ) return multiply(other);
+    	
+    	multiplyArrays(this, other, result);
+    	isFinite(result);
+    	return result;
+    }
+    
+    
+    private static Matrix isFinite(Matrix result)
+    {
+        if (!Matrix.isFinite(result.single0)
+                || !Matrix.isFinite(result.single1)
+                || !Matrix.isFinite(result.single3)
+                || !Matrix.isFinite(result.single4)
+                || !Matrix.isFinite(result.single6)
+                || !Matrix.isFinite(result.single7)
+        ) {
             throw new IllegalArgumentException("Multiplying two matrices produces illegal values");
-
-        if (result == null)
-        {
-            return new Matrix(c);
         }
-        else
-        {
-            result.single = c;
-            return result;
-        }
+        return result;
     }
 
     private static boolean isFinite(float f)
@@ -388,18 +422,42 @@ public final class Matrix implements Cloneable
         return Math.abs(f) <= MAX_FLOAT_VALUE;
     }
 
-    private void multiplyArrays(float[] a, float[] b, float[] c)
+    private static void multiplyArrays(Matrix a, Matrix b, Matrix out)
     {
-        c[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
-        c[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
-        c[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
-        c[3] = a[3] * b[0] + a[4] * b[3] + a[5] * b[6];
-        c[4] = a[3] * b[1] + a[4] * b[4] + a[5] * b[7];
-        c[5] = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
-        c[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
-        c[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
-        c[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
+        float c0 = a.single0 * b.single0 + a.single1 * b.single3; // + a.single2 * b.single6;
+        float c1 = a.single0 * b.single1 + a.single1 * b.single4; // + a.single2 * b.single7;
+//      float c2 = a.single0 * b.single2 + a.single1 * b.single5; // + a.single2 * b.single8; // fixed 0: [0] * 0 + [1] * 0 + 0 * 1
+        float c3 = a.single3 * b.single0 + a.single4 * b.single3; // + a.single5 * b.single6;
+        float c4 = a.single3 * b.single1 + a.single4 * b.single4; // + a.single5 * b.single7;
+//      float c5 = a.single3 * b.single2 + a.single4 * b.single5; // + a.single5 * b.single8; // fixed 0: [3] * 0 + [4] * 0 + 0 * 1
+        float c6 = a.single6 * b.single0 + a.single7 * b.single3 + b.single6; // + a.single8 * b.single6;
+        float c7 = a.single6 * b.single1 + a.single7 * b.single4 + b.single7; // + a.single8 * b.single7;
+//      float c8 = a.single6 * b.single2 + a.single7 * b.single5 + a.single8 * b.single8; // fixed 1: [6] * 0 + [7] * 0 + 1 * 1
+        
+        out.single0 = c0;
+        out.single1 = c1;
+//      out.single2 = c2;
+        out.single3 = c3;
+        out.single4 = c4;
+//      out.single5 = c5;
+        out.single6 = c6;
+        out.single7 = c7;
+//      out.single8 = c8;
     }
+    
+    
+    private static Matrix multiplyArrays(Matrix a, Matrix b)
+    {
+        return new Matrix(
+            a.single0 * b.single0 + a.single1 * b.single3,
+            a.single0 * b.single1 + a.single1 * b.single4,
+            a.single3 * b.single0 + a.single4 * b.single3,
+            a.single3 * b.single1 + a.single4 * b.single4,
+            a.single6 * b.single0 + a.single7 * b.single3 + b.single6,
+            a.single6 * b.single1 + a.single7 * b.single4 + b.single7
+         );
+    }
+    
 
     /**
      * Transforms the given point by this matrix.
@@ -410,12 +468,12 @@ public final class Matrix implements Cloneable
     {
         float x = (float)point.getX();
         float y = (float)point.getY();
-        float a = single[0];
-        float b = single[1];
-        float c = single[3];
-        float d = single[4];
-        float e = single[6];
-        float f = single[7];
+        float a = single0;
+        float b = single1;
+        float c = single3;
+        float d = single4;
+        float e = single6;
+        float f = single7;
         point.setLocation(x * a + y * c + e, x * b + y * d + f);
     }
 
@@ -429,12 +487,12 @@ public final class Matrix implements Cloneable
      */
     public Point2D.Float transformPoint(float x, float y)
     {
-        float a = single[0];
-        float b = single[1];
-        float c = single[3];
-        float d = single[4];
-        float e = single[6];
-        float f = single[7];
+        float a = single0;
+        float b = single1;
+        float c = single3;
+        float d = single4;
+        float e = single6;
+        float f = single7;
         return new Point2D.Float(x * a + y * c + e, x * b + y * d + f);
     }
 
@@ -447,12 +505,12 @@ public final class Matrix implements Cloneable
      */
     public Vector transform(Vector vector)
     {
-        float a = single[0];
-        float b = single[1];
-        float c = single[3];
-        float d = single[4];
-        float e = single[6];
-        float f = single[7];
+        float a = single0;
+        float b = single1;
+        float c = single3;
+        float d = single4;
+        float e = single6;
+        float f = single7;
         float x = vector.getX();
         float y = vector.getY();
         return new Vector(x * a + y * c + e, x * b + y * d + f);
@@ -468,8 +526,8 @@ public final class Matrix implements Cloneable
     public Matrix extractScaling()
     {
         Matrix matrix = new Matrix();
-        matrix.single[0] = this.single[0];
-        matrix.single[4] = this.single[4];
+        matrix.single0 = this.single0;
+        matrix.single4 = this.single4;
         return matrix;
     }
 
@@ -500,8 +558,8 @@ public final class Matrix implements Cloneable
     public Matrix extractTranslating()
     {
         Matrix matrix = new Matrix();
-        matrix.single[6] = this.single[6];
-        matrix.single[7] = this.single[7];
+        matrix.single6 = this.single6;
+        matrix.single7 = this.single7;
         return matrix;
     }
 
@@ -572,7 +630,7 @@ public final class Matrix implements Cloneable
     @Override
     public Matrix clone()
     {
-        return new Matrix(single.clone());
+        return new Matrix(this);
     }
 
     /**
@@ -599,12 +657,12 @@ public final class Matrix implements Cloneable
          * sqrt(x2) =
          * abs(x)
          */
-        if (single[1] != 0.0f)
+        if (single1 != 0.0f)
         {
-            return (float) Math.sqrt(Math.pow(single[0], 2) +
-                                      Math.pow(single[1], 2));
+            return (float) Math.sqrt(Math.pow(single0, 2) +
+                                      Math.pow(single1, 2));
         }
-        return single[0];
+        return single0;
     }
 
     /**
@@ -614,12 +672,12 @@ public final class Matrix implements Cloneable
      */
     public float getScalingFactorY()
     {
-        if (single[3] != 0.0f)
+        if (single3 != 0.0f)
         {
-            return (float) Math.sqrt(Math.pow(single[3], 2) +
-                                      Math.pow(single[4], 2));
+            return (float) Math.sqrt(Math.pow(single3, 2) +
+                                      Math.pow(single4, 2));
         }
-        return single[4];
+        return single4;
     }
 
     /**
@@ -629,7 +687,7 @@ public final class Matrix implements Cloneable
      */
     public float getScaleX()
     {
-        return single[0];
+        return single0;
     }
 
     /**
@@ -637,7 +695,7 @@ public final class Matrix implements Cloneable
      */
     public float getShearY()
     {
-        return single[1];
+        return single1;
     }
 
     /**
@@ -645,7 +703,7 @@ public final class Matrix implements Cloneable
      */
     public float getShearX()
     {
-        return single[3];
+        return single3;
     }
 
     /**
@@ -655,7 +713,7 @@ public final class Matrix implements Cloneable
      */
     public float getScaleY()
     {
-        return single[4];
+        return single4;
     }
 
     /**
@@ -663,7 +721,7 @@ public final class Matrix implements Cloneable
      */
     public float getTranslateX()
     {
-        return single[6];
+        return single6;
     }
 
     /**
@@ -671,7 +729,7 @@ public final class Matrix implements Cloneable
      */
     public float getTranslateY()
     {
-        return single[7];
+        return single7;
     }
 
     /**
@@ -683,7 +741,7 @@ public final class Matrix implements Cloneable
     @Deprecated
     public float getXPosition()
     {
-        return single[6];
+        return single6;
     }
 
     /**
@@ -695,7 +753,7 @@ public final class Matrix implements Cloneable
     @Deprecated
     public float getYPosition()
     {
-        return single[7];
+        return single7;
     }
 
     /**
@@ -707,12 +765,12 @@ public final class Matrix implements Cloneable
     public COSArray toCOSArray()
     {
         COSArray array = new COSArray();
-        array.add(new COSFloat(single[0]));
-        array.add(new COSFloat(single[1]));
-        array.add(new COSFloat(single[3]));
-        array.add(new COSFloat(single[4]));
-        array.add(new COSFloat(single[6]));
-        array.add(new COSFloat(single[7]));
+        array.add(new COSFloat(single0));
+        array.add(new COSFloat(single1));
+        array.add(new COSFloat(single3));
+        array.add(new COSFloat(single4));
+        array.add(new COSFloat(single6));
+        array.add(new COSFloat(single7));
         return array;
     }
 
@@ -720,35 +778,43 @@ public final class Matrix implements Cloneable
     public String toString()
     {
         return "[" +
-            single[0] + "," +
-            single[1] + "," +
-            single[3] + "," +
-            single[4] + "," +
-            single[6] + "," +
-            single[7] + "]";
+            single0 + "," +
+            single1 + "," +
+            single3 + "," +
+            single4 + "," +
+            single6 + "," +
+            single7 + "]";
     }
 
+    
     @Override
-    public int hashCode()
-    {
-        return Arrays.hashCode(single);
-    }
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + Float.floatToIntBits(single0);
+		result = prime * result + Float.floatToIntBits(single1);
+		result = prime * result + Float.floatToIntBits(single3);
+		result = prime * result + Float.floatToIntBits(single4);
+		result = prime * result + Float.floatToIntBits(single6);
+		result = prime * result + Float.floatToIntBits(single7);
+		return result;
+	}
 
+    
     @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj)
-        {
-            return true;
-        }
-        if (obj == null)
-        {
-            return false;
-        }
-        if (getClass() != obj.getClass())
-        {
-            return false;
-        }
-        return Arrays.equals(this.single, ((Matrix) obj).single);
-    }
+	public boolean equals(Object obj)
+	{
+		if ( this == obj ) return true;
+		if ( obj == null ) return false;
+		if ( getClass() != obj.getClass() ) return false;
+		Matrix other = (Matrix)obj;
+		if ( Float.floatToIntBits(single0) != Float.floatToIntBits(other.single0) ) return false;
+		if ( Float.floatToIntBits(single1) != Float.floatToIntBits(other.single1) ) return false;
+		if ( Float.floatToIntBits(single3) != Float.floatToIntBits(other.single3) ) return false;
+		if ( Float.floatToIntBits(single4) != Float.floatToIntBits(other.single4) ) return false;
+		if ( Float.floatToIntBits(single6) != Float.floatToIntBits(other.single6) ) return false;
+		if ( Float.floatToIntBits(single7) != Float.floatToIntBits(other.single7) ) return false;
+		return true;
+	}
 }

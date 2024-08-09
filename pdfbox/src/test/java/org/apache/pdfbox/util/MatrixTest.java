@@ -21,6 +21,10 @@ import org.apache.pdfbox.cos.COSName;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+
+import java.awt.geom.AffineTransform;
+
 import org.junit.Test;
 
 /**
@@ -42,6 +46,22 @@ public class MatrixTest
         assertMatrixIsPristine(m2);
     }
 
+    @Test
+    public void testAffineTransform() throws Exception
+    {
+        Matrix m1 = new Matrix(1, 2, 3, 4, 5, 6);
+        AffineTransform af = m1.createAffineTransform();
+        assertEquals(1d, af.getScaleX(), 0d);
+        assertEquals(2d, af.getShearY(), 0d);
+        assertEquals(3d, af.getShearX(), 0d);
+        assertEquals(4d, af.getScaleY(), 0d);
+        assertEquals(5d, af.getTranslateX(), 0d);
+        assertEquals(6d, af.getTranslateY(), 0d);
+
+        Matrix m2 = new Matrix(af);
+        assertEquals(m1,  m2);
+    }
+    
     @Test
     public void testGetScalingFactor()
     {
@@ -87,21 +107,21 @@ public class MatrixTest
         final Matrix const2 = new Matrix();
 
         // Create matrix with values
-        // [ 0, 1, 2
-        // 1, 2, 3
-        // 2, 3, 4]
+        // 0, 1, 0
+        // 1, 2, 0
+        // 2, 3, 1
         for (int x = 0; x < 3; x++)
         {
-            for (int y = 0; y < 3; y++)
+            for (int y = 0; y < 2; y++)
             {
                 const1.setValue(x, y, x + y);
                 const2.setValue(x, y, 8 + x + y);
             }
         }
 
-        float[] m1MultipliedByM1 = new float[] { 5,  8,  11,  8, 14, 20, 11, 20,  29 };
-        float[] m1MultipliedByM2 = new float[] { 29, 32, 35, 56, 62, 68, 83, 92, 101 };
-        float[] m2MultipliedByM1 = new float[] { 29, 56, 83, 32, 62, 92, 35, 68, 101 };
+        float[] m1MultipliedByM1 = multiply(const1, const1);
+        float[] m1MultipliedByM2 = multiply(const1, const2);
+        float[] m2MultipliedByM1 = multiply(const2, const1);
 
         Matrix var1 = const1.clone();
         Matrix var2 = const2.clone();
@@ -147,12 +167,12 @@ public class MatrixTest
         final Matrix testMatrix = new Matrix();
 
         // Create matrix with values
-        // [ 0, 1, 2
-        // 1, 2, 3
-        // 2, 3, 4]
+        // 0, 1, 0
+        // 1, 2, 0
+        // 2, 3, 1
         for (int x = 0; x < 3; x++)
         {
-            for (int y = 0; y < 3; y++)
+            for (int y = 0; y < 2; y++)
             {
                 testMatrix.setValue(x, y, x + y);
             }
@@ -162,16 +182,17 @@ public class MatrixTest
         Matrix m2 = testMatrix.clone();
 
         // Multiply two matrices together producing a new result matrix.
+        float[] ref = multiply(m1, m2);
         Matrix product = m1.multiply(m2);
 
         assertNotSame(m1, product);
         assertNotSame(m2, product);
 
         // Operand 1 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m1);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m1);
         // Operand 2 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m2);
-        assertMatrixValuesEqualTo(new float[] { 5, 8, 11, 8, 14, 20, 11, 20, 29 }, product);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m2);
+        assertMatrixValuesEqualTo(ref, product);
 
         // Multiply two matrices together with the result being written to a third matrix
         // (Any existing values there will be overwritten).
@@ -180,34 +201,36 @@ public class MatrixTest
         Matrix retVal = m1.multiply(m2, resultMatrix);
         assertSame(retVal, resultMatrix);
         // Operand 1 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m1);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m1);
         // Operand 2 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m2);
-        assertMatrixValuesEqualTo(new float[] { 5, 8, 11, 8, 14, 20, 11, 20, 29 }, resultMatrix);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m2);
+        assertMatrixValuesEqualTo(ref, resultMatrix);
 
         // Multiply two matrices together with the result being written into the other matrix
         retVal = m1.multiply(m2, m2);
         assertSame(retVal, m2);
         // Operand 1 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m1);
-        assertMatrixValuesEqualTo(new float[] { 5, 8, 11, 8, 14, 20, 11, 20, 29 }, retVal);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m1);
+        assertMatrixValuesEqualTo(ref, retVal);
 
         // Multiply two matrices together with the result being written into 'this' matrix
         m1 = testMatrix.clone();
         m2 = testMatrix.clone();
 
+        ref = multiply(m1, m2);
         retVal = m1.multiply(m2, m1);
         assertSame(retVal, m1);
         // Operand 2 should not have changed
-        assertMatrixValuesEqualTo(new float[] { 0, 1, 2, 1, 2, 3, 2, 3, 4 }, m2);
-        assertMatrixValuesEqualTo(new float[] { 5, 8, 11, 8, 14, 20, 11, 20, 29 }, retVal);
+        assertMatrixValuesEqualTo(new float[] { 0, 1, 0, 1, 2, 0, 2, 3, 1 }, m2);
+        assertMatrixValuesEqualTo(ref, retVal);
 
         // Multiply the same matrix with itself with the result being written into 'this' matrix
         m1 = testMatrix.clone();
 
+        ref = multiply(m1, m1);
         retVal = m1.multiply(m1, m1);
         assertSame(retVal, m1);
-        assertMatrixValuesEqualTo(new float[] { 5, 8, 11, 8, 14, 20, 11, 20, 29 }, retVal);
+        assertMatrixValuesEqualTo(ref, retVal);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -331,31 +354,27 @@ public class MatrixTest
     /**
      * This method asserts that the matrix values for the given {@link Matrix} object have the specified values.
      * 
-     * @param values the expected values
+     * @param expected the expected values
      * @param m the matrix to test
      */
-    private void assertMatrixValuesEqualTo(float[] values, Matrix m)
+    private void assertMatrixValuesEqualTo(float[] expected, Matrix m)
     {
         float delta = 0.00001f;
-        for (int i = 0; i < values.length; i++)
-        {
-            // Need to convert a (row, column) coordinate into a straight index.
-            int row = (int) Math.floor(i / 3);
+        for (int i = 0; i < expected.length; i++) {
+            int row = i / 3;
             int column = i % 3;
-            StringBuilder failureMsg = new StringBuilder();
-            failureMsg.append("Incorrect value for matrix[").append(row).append(",").append(column)
-                    .append("]");
-            assertEquals(failureMsg.toString(), values[i], m.getValue(row, column), delta);
+            String msg = String.format("Incorrect value for matrix[%d, %d]", row, column);
+            assertEquals(msg, expected[i], m.getValue(row, column), delta);
         }
     }
     
     //Uncomment annotation to run the test
-    // @Test
+    //@Test
     public void testMultiplicationPerformance() {
         long start = System.currentTimeMillis();
         Matrix c;
         Matrix d;
-        for (int i=0; i<100000000; i++) {
+        for (int i = 0; i<100000000; i++) {
             c = new Matrix(15, 3, 235, 55, 422, 1);
             d = new Matrix(45, 345, 23, 551, 66, 832);
             c.multiply(d);
@@ -364,4 +383,42 @@ public class MatrixTest
         long stop = System.currentTimeMillis();
         System.out.println("Matrix multiplication took " + (stop - start) + "ms.");
     }
+    
+    
+    private static float[] multiply(Matrix m1, Matrix m2)
+    {
+        // a00 = a00 * b00 + a01 * b10 + a02 * b20 -> a0 = a0 * b0 + a1 * b3 + a2 * b6
+        // a01 = a00 * b01 + a01 * b11 + a02 * b21 -> a1 = a0 * b1 + a1 * b4 + a2 * b7
+        // a02 = a00 * b02 + a01 * b12 + a02 * b22 -> a2 = a0 * b2 + a1 * b5 + a2 * b8
+        // a10 = a10 * b00 + a11 * b10 + a12 * b20 -> a3 = a3 * b0 + a4 * b3 + a5 * b6
+        // a11 = a10 * b01 + a11 * b11 + a12 * b21 -> a4 = a3 * b1 + a4 * b4 + a5 * b7
+        // a12 = a10 * b02 + a11 * b12 + a12 * b22 -> a5 = a3 * b2 + a4 * b5 + a5 * b8
+        // a20 = a20 * b00 + a21 * b10 + a22 * b20 -> a6 = a6 * b0 + a7 * b3 + a8 * b6
+        // a21 = a20 * b01 + a21 * b11 + a22 * b21 -> a7 = a6 * b1 + a7 * b4 + a8 * b7
+        // a22 = a20 * b02 + a21 * b12 + a22 * b22 -> a8 = a6 * b2 + a7 * b5 + a8 * b8
+
+        float[] a = flatten(m1);
+        float[] b = flatten(m2);
+        return new float[] {
+            a[0] * b[0] + a[1] * b[3] + a[2] * b[6],
+            a[0] * b[1] + a[1] * b[4] + a[2] * b[7],
+            a[0] * b[2] + a[1] * b[5] + a[2] * b[8],
+            a[3] * b[0] + a[4] * b[3] + a[5] * b[6],
+            a[3] * b[1] + a[4] * b[4] + a[5] * b[7],
+            a[3] * b[2] + a[4] * b[5] + a[5] * b[8],
+            a[6] * b[0] + a[7] * b[3] + a[8] * b[6],
+            a[6] * b[1] + a[7] * b[4] + a[8] * b[7],
+            a[6] * b[2] + a[7] * b[5] + a[8] * b[8]
+        };
+    }
+
+    
+    private static float[] flatten(Matrix m)
+    {
+        return new float[] {
+            m.getScaleX(),     m.getShearY(),     0,
+            m.getShearX(),     m.getScaleY(),     0,
+            m.getTranslateX(), m.getTranslateY(), 1 };
+    }
+    
 }
