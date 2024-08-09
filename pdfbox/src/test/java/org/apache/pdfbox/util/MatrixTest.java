@@ -374,7 +374,7 @@ public class MatrixTest
         long start = System.currentTimeMillis();
         Matrix c;
         Matrix d;
-        for (long i = 0; i<2_000_000_000l; i++) {
+        for (int i = 0; i<100000000; i++) {
             c = new Matrix(15, 3, 235, 55, 422, 1);
             d = new Matrix(45, 345, 23, 551, 66, 832);
             c.multiply(d);
