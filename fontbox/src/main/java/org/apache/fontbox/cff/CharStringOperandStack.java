@@ -257,8 +257,9 @@ public final class CharStringOperandStack
 
     public static int asInt(double value) throws IllegalArgumentException
     {
-        if ( Math.getExponent(value)<0 ) throw new IllegalArgumentException(value + " is not an integer");
-        return (int)value;
+        int integer = (int)value;
+        if ( value != integer ) throw new IllegalArgumentException(value + " is not an integer");
+        return integer;
     }
 
 
