@@ -282,6 +282,24 @@ public class Bytes
         while ( index >= 0 && ++data[index] == 0 ) index--;
         return index;
     }
+
+
+    /**
+     * Adds value to the bytes as if it were a big BigEndian number.
+     * 
+     * @return the index of the least significant byte that was not modified ({@code -1} if the whole number was modified,
+     * {@code -2} if the whole number overflowed.
+     */
+    public static int add(byte[] data, int value)
+    {
+        int index = data.length - 1;
+        while ( index >= 0 && value != 0 ) {
+            data[index] = (byte)(value += (data[index] & 0xff));
+            value >>>= 8;
+            index--;
+        }
+        return value == 0 ? index : -2;
+    }
     
 
     public static byte[] copy(byte[] bytes)

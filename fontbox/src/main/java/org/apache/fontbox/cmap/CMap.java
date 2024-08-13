@@ -398,34 +398,45 @@ public class CMap
      * @param endCode ending CID code.
      * @param utf16 The UTF16BE string.
      */
-    void addBasefontRange(byte[] startCode, byte[] endCode, byte[] utf16)
+    void addBasefontRange(byte[] startCode, byte[] endCode, byte[] utf16, boolean strict)
     {
         final int length = startCode.length;
         final List<BasefontRange> ranges = getRangesList(basefontRanges, length);
-        final int start = Bytes.getUnsigned(startCode), end = Bytes.getUnsigned(endCode);
+        final int end = Bytes.getUnsigned(endCode);
+        int start = Bytes.getUnsigned(startCode);
         
         if ( start == end ) {
             addBasefontMapping(Bytes.copy(startCode), Bytes.toString(utf16));
             return;
         }
+
         
-        BasefontRange range = null;
-        if ( ranges.size() != 0 ) {
-            range = ranges.get(ranges.size() - 1);
-            if ( !range.extend(start, end, length, utf16, utf16.length) ) {
-                range = null;
+        // BasefontRange is always "strict", so we need to split ranges up in relaxed mode
+        do {
+            int min = Math.min(0x100 - (utf16[utf16.length - 1] & 0xff), end - start + 1);
+            
+            BasefontRange range = null;
+            if ( ranges.size() != 0 ) {
+                range = ranges.get(ranges.size() - 1);
+                if ( !range.extend(start, start + min - 1, length, utf16, utf16.length) ) {
+                    range = null;
+                }
             }
-        }
+            
+            if ( range == null ) {
+                ranges.add(range = new BasefontRange(start, start + min - 1, length, utf16, utf16.length));
+                basefontRangesMin = Math.min(basefontRangesMin, length);
+                basefontRangesMax = Math.max(basefontRangesMax, length);
+            }
+            
+            // fixme: ugly little hack
+            int cid = range.toCid(SPACE);
+            if ( cid != -1 ) spaceMapping = cid;
+
+            if ( Bytes.add(utf16, min) == -2 ) break;
+            start += min;
+        } while ( !strict && start < end );
         
-        if ( range == null ) {
-            ranges.add(range = new BasefontRange(start, end, length, utf16, utf16.length));
-            basefontRangesMin = Math.min(basefontRangesMin, length);
-            basefontRangesMax = Math.max(basefontRangesMax, length);
-        }
-        
-        // fixme: ugly little hack
-        int cid = range.toCid(SPACE);
-        if ( cid != -1 ) spaceMapping = cid;
     }
     
     

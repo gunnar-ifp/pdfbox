@@ -42,6 +42,8 @@ public class CMapParser
 
     private final byte[] tokenParserByteBuffer = new byte[512];
 
+    private boolean strictMode = false;
+    
     /**
      * Creates a new instance of CMapParser.
      */
@@ -53,11 +55,10 @@ public class CMapParser
      * Creates a new instance of CMapParser.
      * 
      * @param strictMode activates the strict mode used for inline CMaps (unused)
-     * @deprecated
      */
-    @Deprecated
     public CMapParser(boolean strictMode)
     {
+        this.strictMode = strictMode;
     }
 
     /**
@@ -98,6 +99,7 @@ public class CMapParser
         {
             input = getExternalCMap(name);
             // deactivate strict mode
+            strictMode = false;
             return parse(input);
         }
         finally
@@ -458,12 +460,12 @@ public class CMapParser
                         startCode[0] = utf16[0] = utf16[1] = (byte) (i >> 8);
                         startCode[1] = utf16[1] = (byte) 0x00;
                         endCode  [1] = (byte)0xff;
-                        result.addBasefontRange(startCode, endCode, utf16);
+                        result.addBasefontRange(startCode, endCode, utf16, strictMode);
                     }
                 }
                 else
                 {
-                    result.addBasefontRange(startCode, endCode, utf16);
+                    result.addBasefontRange(startCode, endCode, utf16, strictMode);
                 }
             }
             else
