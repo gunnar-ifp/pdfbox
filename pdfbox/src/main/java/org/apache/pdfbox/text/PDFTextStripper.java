@@ -167,6 +167,9 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
     private Map<String, TreeMap<Float, TreeSet<Float>>> characterListMapping = new HashMap<String, TreeMap<Float, TreeSet<Float>>>();
 
+    /**
+     * Can be {@code null} since only set in some methods and not in others, instead of a constructor.
+     */
     protected PDDocument document;
     protected Writer output;
 
@@ -448,7 +451,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     protected void startPage(PDPage page) throws IOException
     {
-        if ( document.getResourceCache() != null ) document.getResourceCache().startPage(page);
+        if ( document !=null && document.getResourceCache() != null ) document.getResourceCache().startPage(page);
     }
 
     /**
@@ -461,7 +464,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     protected void endPage(PDPage page) throws IOException
     {
-        if ( document.getResourceCache() != null ) document.getResourceCache().endPage();
+        if ( document !=null && document.getResourceCache() != null ) document.getResourceCache().endPage();
     }
 
     private static final float END_OF_LAST_TEXT_X_RESET_VALUE = -1;
