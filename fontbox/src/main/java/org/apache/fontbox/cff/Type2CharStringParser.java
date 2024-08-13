@@ -124,7 +124,7 @@ public final class Type2CharStringParser implements CommandProvider<Type2Command
     private void parse(DataInput input, CommandConsumer<Type2Command> consumer, int depth) throws IOException
     {
         if ( depth>TYPE2_CALL_LIMIT ) throw new IOException(message("Type2 call limit exceeded"));
-        
+
         while (input.hasRemaining()) {
             if ( stack.size()>TYPE2_OPERAND_STACK_LIMIT * 2 ) throw new IOException(message("Type2 stack limit exceeded"));
 
@@ -194,7 +194,9 @@ public final class Type2CharStringParser implements CommandProvider<Type2Command
                             if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of charstring"));
                             consumer.apply(Type2Command.ENDCHAR, stack);
                         } else {
-                            if ( input.hasRemaining() ) LOG.warn(message(operator, "Dangling bytes at end of subroutine"));
+                            if ( input.hasRemaining() && input.readByte() != CharStringCommand.RETURN ) {
+                                LOG.warn(message(operator, "Dangling bytes at end of subroutine"));
+                            }
                             consumer.apply(Type2Command.ENDCHAR, stack);
                             return;
                         }
@@ -290,7 +292,7 @@ public final class Type2CharStringParser implements CommandProvider<Type2Command
                         if ( subr<0 || subr>=num ) {
                             LOG.warn(message(operator, "Invalid (global)subr# " + subr));
                         } else {
-                            parse(new DataInput(table[subr]), consumer, depth++);
+                            parse(new DataInput(table[subr]), consumer, depth + 1);
                         }
                         break;
                         

@@ -254,7 +254,7 @@ public final class CFF2CharStringParser implements CommandProvider<CFF2Command>
                         if ( subr<0 || subr>=num ) {
                             LOG.warn(message(operator, "Invalid (global)subr# " + subr));
                         } else {
-                            parse(new DataInput(table[subr]), consumer, depth++);
+                            parse(new DataInput(table[subr]), consumer, depth + 1);
                         }
                         break;
 

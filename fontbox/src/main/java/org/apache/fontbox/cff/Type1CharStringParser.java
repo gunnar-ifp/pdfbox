@@ -170,7 +170,7 @@ public final class Type1CharStringParser implements CommandProvider<Type1Command
                         if ( subr<0 || subr >= subrs.length ) {
                             LOG.warn(message(operator, "Invalid subr# " + subr));
                         } else {
-                            parse(new DataInput(subrs[subr]), consumer, depth++);
+                            parse(new DataInput(subrs[subr]), consumer, depth + 1);
                         }
                         break;
                         
