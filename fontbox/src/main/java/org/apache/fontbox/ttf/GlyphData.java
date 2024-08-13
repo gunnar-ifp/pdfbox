@@ -18,7 +18,6 @@ package org.apache.fontbox.ttf;
 
 import java.awt.geom.GeneralPath;
 import java.io.IOException;
-import java.util.Map;
 
 import org.apache.fontbox.util.BoundingBox;
 

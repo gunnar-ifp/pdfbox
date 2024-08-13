@@ -22,9 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -116,6 +114,11 @@ class GlyfCompositeDescript extends GlyphDescription
     }
     
     
+    /**
+     * Gets a view to the composite components.
+     * 
+     * @return unmodifiable list of this composite glyph's {@linkplain GlyphComponent components}
+     */
     @Override
     public List<GlyphComponent> getComponents()
     {
@@ -188,16 +191,6 @@ class GlyfCompositeDescript extends GlyphDescription
             return c.transformY(gd.getXCoordinate(index), gd.getYCoordinate(index));
         }
         return 0;
-    }
-
-    /**
-     * Gets a view to the composite components.
-     * 
-     * @return unmodifiable list of this composite glyph's {@linkplain GlyfCompositeComp components}
-     */
-    public List<GlyphComponent> getComponents()
-    {
-        return Collections.unmodifiableList(Arrays.asList(components));
     }
 
     private GlyphComponent lookupCompositeCompContour(int contour)

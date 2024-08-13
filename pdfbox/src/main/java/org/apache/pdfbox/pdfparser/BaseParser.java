@@ -808,7 +808,7 @@ public abstract class BaseParser
         catch (CharacterCodingException e)
         {
             // some malformed PDFs don't use UTF-8 see PDFBOX-3347
-            LOG.debug("Buffer could not be decoded using StandardCharsets.UTF_8 - "
+//            LOG.debug("Buffer could not be decoded using StandardCharsets.UTF_8 - "
 //                  + "trying " + ALTERNATIVE_CHARSET.name(), e);
             return new String(buffer.array(), 0, buffer.size(), ALTERNATIVE_CHARSET);
         }

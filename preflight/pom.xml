@@ -26,10 +26,10 @@
 	<parent>
 		<groupId>org.apache.pdfbox</groupId>
 		<artifactId>pdfbox-parent</artifactId>
-		<version>2.0.32-SNAPSHOT</version>
+		<version>2.0.32.modified-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
-        
+
         <!-- enable the Bavaria tests with -Dskip-bavaria=false  -->
         <properties>
             <skip-bavaria>true</skip-bavaria>

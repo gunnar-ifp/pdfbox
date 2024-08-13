@@ -17,7 +17,6 @@
 package org.apache.fontbox.ttf;
 
 import java.io.IOException;
-import java.util.Map;
 
 /**
  * A table in a true type font.
@@ -223,6 +222,10 @@ public class GlyphTable extends TTFTable
 
     private GlyphData getGlyphData(int gid, int level) throws IOException
     {
+        if (level > maxp.getMaxComponentDepth())
+        {
+            throw new IOException("composite glyph maximum level reached");
+        }        
         GlyphData glyph = new GlyphData();
         int leftSideBearing = hmt == null ? 0 : hmt.getLeftSideBearing(gid);
         glyph.initData(this, data, gid, leftSideBearing, level);
