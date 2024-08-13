@@ -1561,11 +1561,11 @@ public class COSDictionary extends COSBase implements COSUpdateInfo
         if (objs.contains(base))
         {
             // avoid endless recursion
-            return String.valueOf(base.hashCode());
+            return "hash:" + base.hashCode();
         }
-        objs.add(base);
         if (base instanceof COSDictionary)
         {
+            objs.add(base);
             StringBuilder sb = new StringBuilder("COSDictionary{");
             for (Map.Entry<COSName, COSBase> x : ((COSDictionary) base).entrySet())
             {
@@ -1586,6 +1586,7 @@ public class COSDictionary extends COSBase implements COSUpdateInfo
         }
         if (base instanceof COSArray)
         {
+            objs.add(base);
             StringBuilder sb = new StringBuilder("COSArray{");
             for (COSBase x : ((COSArray) base))
             {
@@ -1597,6 +1598,7 @@ public class COSDictionary extends COSBase implements COSUpdateInfo
         }
         if (base instanceof COSObject)
         {
+            objs.add(base);
             COSObject obj = (COSObject) base;
             return "COSObject{" + getDictionaryString(obj.getObject(), objs) + "}";
         }

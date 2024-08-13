@@ -37,6 +37,7 @@ import java.util.List;
 import javax.xml.transform.TransformerException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.io.IOUtils;
 
 /**
@@ -136,7 +137,7 @@ public class PDFMergerExample
         XMPMetadata xmpMetadata = XMPMetadata.createXMPMetadata();
 
         // PDF/A-1b properties
-        PDFAIdentificationSchema pdfaSchema = xmpMetadata.createAndAddPFAIdentificationSchema();
+        PDFAIdentificationSchema pdfaSchema = xmpMetadata.createAndAddPDFAIdentificationSchema();
         pdfaSchema.setPart(1);
         pdfaSchema.setConformance("B");
 
@@ -159,10 +160,10 @@ public class PDFMergerExample
         OutputStream cosXMPStream = null;
         try
         {
-            xmpOutputStream = new ByteArrayOutputStream();
             cosXMPStream = cosStream.createOutputStream();
-            new XmpSerializer().serialize(xmpMetadata, xmpOutputStream, true);
-            cosXMPStream.write(xmpOutputStream.toByteArray());
+            new XmpSerializer().serialize(xmpMetadata, cosXMPStream, true);
+            cosStream.setName(COSName.TYPE, "Metadata" );
+            cosStream.setName(COSName.SUBTYPE, "XML" );
             return new PDMetadata(cosStream);
         }
         finally

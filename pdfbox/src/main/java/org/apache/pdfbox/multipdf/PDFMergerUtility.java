@@ -1083,6 +1083,10 @@ public class PDFMergerUtility
             PDStructureTreeRoot srcStructTree,
             PDStructureTreeRoot destStructTree) throws IOException
     {
+        if (srcStructTree == null)
+        {
+            return;
+        }
         PDNameTreeNode<PDStructureElement> srcIDTree = srcStructTree.getIDTree();
         if (srcIDTree == null)
         {
@@ -1121,6 +1125,10 @@ public class PDFMergerUtility
     static Map<String, PDStructureElement> getIDTreeAsMap(PDNameTreeNode<PDStructureElement> idTree)
             throws IOException
     {
+        if (idTree == null)
+        {
+            return new LinkedHashMap<String, PDStructureElement>();
+        }
         Map<String, PDStructureElement> names = idTree.getNames();
         if (names == null)
         {
@@ -1147,6 +1155,10 @@ public class PDFMergerUtility
     static Map<Integer, COSObjectable> getNumberTreeAsMap(PDNumberTreeNode tree)
             throws IOException
     {
+        if (tree == null)
+        {
+            return new LinkedHashMap<Integer, COSObjectable>();
+        }
         Map<Integer, COSObjectable> numbers = tree.getNumbers();
         if (numbers == null)
         {
@@ -1171,11 +1183,11 @@ public class PDFMergerUtility
     private void mergeRoleMap(PDStructureTreeRoot srcStructTree, PDStructureTreeRoot destStructTree)
     {
         COSDictionary srcDict = srcStructTree.getCOSObject().getCOSDictionary(COSName.ROLE_MAP);
-        COSDictionary destDict = destStructTree.getCOSObject().getCOSDictionary(COSName.ROLE_MAP);
         if (srcDict == null)
         {
             return;
         }
+        COSDictionary destDict = destStructTree.getCOSObject().getCOSDictionary(COSName.ROLE_MAP);
         if (destDict == null)
         {
             destStructTree.getCOSObject().setItem(COSName.ROLE_MAP, srcDict); // clone not needed
@@ -1295,7 +1307,7 @@ public class PDFMergerUtility
         List<PDField> srcFields = srcAcroForm.getFields();
         COSArray destFields;
 
-        if (srcFields != null && !srcFields.isEmpty())
+        if (!srcFields.isEmpty())
         {           
             // get the destinations root fields. Could be that the entry doesn't exist
             // or is of wrong type
@@ -1337,7 +1349,7 @@ public class PDFMergerUtility
             return;
         }
 
-        if (destField.getFieldType() == "Tx" && destField.getFieldType() == "Tx")
+        if ("Tx".equals(srcField.getFieldType()) && "Tx".equals(destField.getFieldType()))
         {
             // if the field already has multiple widgets we can add to the array
             if (destField.getCOSObject().containsKey(COSName.KIDS))
@@ -1439,7 +1451,7 @@ public class PDFMergerUtility
         List<PDField> srcFields = srcAcroForm.getFields();
         COSArray destFields;
 
-        if (srcFields != null && !srcFields.isEmpty())
+        if (!srcFields.isEmpty())
         {
             // if a form is merged multiple times using PDFBox the newly generated
             // fields starting with dummyFieldName may already exist. We need to determine the last unique 
@@ -1450,7 +1462,7 @@ public class PDFMergerUtility
             for (PDField destField : destAcroForm.getFieldTree())
             {
                 String fieldName = destField.getPartialName();
-                if (fieldName.startsWith(prefix))
+                if (fieldName != null && fieldName.startsWith(prefix))
                 {
                     String suffix = fieldName.substring(prefixLength);
                     if (suffix.matches("\\d+"))

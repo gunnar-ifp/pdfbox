@@ -27,8 +27,8 @@
 	<parent>
 		<groupId>org.apache.pdfbox</groupId>
 		<artifactId>pdfbox-parent</artifactId>
-		<version>2.0.28.modified-SNAPSHOT</version>
-		<relativePath>../parent/pom.xml</relativePath>
+		<version>2.0.32-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
 
         <profiles>
@@ -50,10 +50,13 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
 		</dependency>
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
+          <version>${commons-logging.version}</version>
         </dependency>
 	</dependencies>
 
@@ -72,7 +75,7 @@
 					<configLocation>../pdfbox-checkstyle-5.xml</configLocation>
 				</configuration>
 			</plugin>
-
+                        
                         <!-- JDK9 -->
                         <plugin>
                             <artifactId>maven-surefire-plugin</artifactId>
@@ -92,7 +95,7 @@
                             </configuration>
                         </plugin>
 		</plugins>
-
+                
 	</build>
 
 </project>

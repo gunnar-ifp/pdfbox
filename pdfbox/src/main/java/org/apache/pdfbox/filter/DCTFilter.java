@@ -16,10 +16,12 @@
  */
 package org.apache.pdfbox.filter;
 
+import java.awt.color.CMMException;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,13 +33,12 @@ import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageInputStream;
-import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.apache.pdfbox.cos.COSDictionary;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -53,21 +54,6 @@ final class DCTFilter extends Filter
 
     private static final int POS_TRANSFORM = 11;
     private static final String ADOBE = "Adobe";
-
-    private static XPathExpression xPathExpression;
-
-    static
-    {
-        try
-        {
-            xPathExpression = XPathFactory.newInstance().newXPath().compile("Chroma/ColorSpaceType/@name");
-        }
-        catch (XPathExpressionException ex)
-        {
-            // shouldn't happen unless you changed the expression
-            LOG.error(ex.getMessage(), ex);
-        }
-    }
 
     @Override
     public DecodeResult decode(InputStream encoded, OutputStream decoded, COSDictionary
@@ -145,14 +131,15 @@ final class DCTFilter extends Filter
                 int colorTransform = transform != null ? transform : 0;
 
                 // 0 = Unknown (RGB or CMYK), 1 = YCbCr, 2 = YCCK
+                // https://exiftool.org/TagNames/JPEG.html#Adobe
                 switch (colorTransform)
                 {
                     case 0:
                         // already CMYK
                         break;
                     case 1:
-                        raster = fromYCbCrtoCMYK(raster);
-                        break;
+                        LOG.warn("There is no 4 channel YCbCr, using YCCK");
+                        // fallthrough
                     case 2:
                         raster = fromYCCKtoCMYK(raster);
                         break;
@@ -168,6 +155,11 @@ final class DCTFilter extends Filter
 
             DataBufferByte dataBuffer = (DataBufferByte)raster.getDataBuffer();
             decoded.write(dataBuffer.getData());
+        }
+        catch (CMMException ex)
+        {
+            // PDFBOX-5732
+            throw new IOException(ex);
         }
         finally
         {
@@ -193,28 +185,18 @@ final class DCTFilter extends Filter
         Element tree = (Element)metadata.getAsTree("javax_imageio_jpeg_image_1.0");
         Element markerSequence = (Element)tree.getElementsByTagName("markerSequence").item(0);
         NodeList app14AdobeNodeList = markerSequence.getElementsByTagName("app14Adobe");
-        if (app14AdobeNodeList != null && app14AdobeNodeList.getLength() > 0)
+        if (app14AdobeNodeList != null)
         {
-            Element adobe = (Element) app14AdobeNodeList.item(0);
-            return Integer.parseInt(adobe.getAttribute("transform"));
-        }
-
-        // PDFBOX-5488: plan B: use ColorSpaceType from the other metadata tree.
-        try
-        {
-            String value = xPathExpression.evaluate(metadata.getAsTree("javax_imageio_1.0"));
-            if ("YCbCr".equals(value))
+            int app14AdobeNodeListLength = app14AdobeNodeList.getLength();
+            if (app14AdobeNodeListLength > 0)
             {
-                return 1;
+                if (app14AdobeNodeListLength > 1)
+                {
+                    LOG.warn("app14Adobe entry appears several times, using the last one");
+                }
+                Element adobe = (Element) app14AdobeNodeList.item(app14AdobeNodeListLength - 1);
+                return Integer.valueOf(adobe.getAttribute("transform"));
             }
-            if ("YCCK".equals(value))
-            {
-                return 2;
-            }
-        }
-        catch (XPathExpressionException ex)
-        {
-            return 0;
         }
         return 0;
     }
@@ -287,44 +269,6 @@ final class DCTFilter extends Filter
                 int r = clamp(Y + 1.402f * Cr - 179.456f);
                 int g = clamp(Y - 0.34414f * Cb - 0.71414f * Cr + 135.45984f);
                 int b = clamp(Y + 1.772f * Cb - 226.816f);
-
-                // naive RGB to CMYK
-                int cyan = 255 - r;
-                int magenta = 255 - g;
-                int yellow = 255 - b;
-
-                // update new raster
-                value[0] = cyan;
-                value[1] = magenta;
-                value[2] = yellow;
-                value[3] = (int)K;
-                writableRaster.setPixel(x, y, value);
-            }
-        }
-        return writableRaster;
-    }
-
-    private WritableRaster fromYCbCrtoCMYK(Raster raster)
-    {
-        WritableRaster writableRaster = raster.createCompatibleWritableRaster();
-
-        int[] value = new int[4];
-        for (int y = 0, height = raster.getHeight(); y < height; y++)
-        {
-            for (int x = 0, width = raster.getWidth(); x < width; x++)
-            {
-                raster.getPixel(x, y, value);
-
-                // 4-channels 0..255
-                float Y = value[0];
-                float Cb = value[1];
-                float Cr = value[2];
-                float K = value[3];
-
-                // YCbCr to RGB, see http://www.equasys.de/colorconversion.html
-                int r = clamp( (1.164f * (Y-16)) + (1.596f * (Cr - 128)) );
-                int g = clamp( (1.164f * (Y-16)) + (-0.392f * (Cb-128)) + (-0.813f * (Cr-128)));
-                int b = clamp( (1.164f * (Y-16)) + (2.017f * (Cb-128)));
 
                 // naive RGB to CMYK
                 int cyan = 255 - r;

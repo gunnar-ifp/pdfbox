@@ -433,7 +433,7 @@ public class PDFDebugger extends JFrame
             {
                 try
                 {
-                    if (currentFilePath.startsWith("http"))
+                    if (currentFilePath.startsWith("http") || currentFilePath.startsWith("file:"))
                     {
                         readPDFurl(currentFilePath, "");
                     }
@@ -1027,14 +1027,20 @@ public class PDFDebugger extends JFrame
         {
             Object pageObj = path.getParentPath().getLastPathComponent();
             COSDictionary page = (COSDictionary) getUnderneathObject(pageObj);
-            resourcesDic = (COSDictionary) page.getDictionaryObject(COSName.RESOURCES);
+            if (page != null)
+            {
+                resourcesDic = page.getCOSDictionary(COSName.RESOURCES);
+            }
             isContentStream = true;
         }
         else if (COSName.CONTENTS.equals(parentKey) || COSName.CHAR_PROCS.equals(parentKey))
         {
             Object pageObj = path.getParentPath().getParentPath().getLastPathComponent();
             COSDictionary page = (COSDictionary) getUnderneathObject(pageObj);
-            resourcesDic = (COSDictionary) page.getDictionaryObject(COSName.RESOURCES);
+            if (page != null)
+            {
+                resourcesDic = page.getCOSDictionary(COSName.RESOURCES);
+            }
             isContentStream = true;
         }
         else if (COSName.FORM.equals(stream.getCOSName(COSName.SUBTYPE)) ||
@@ -1470,6 +1476,7 @@ public class PDFDebugger extends JFrame
         };
         document = documentOpener.parse();
         printMenuItem.setEnabled(true);
+        printDpiMenu.setEnabled(true);
         reopenMenuItem.setEnabled(true);
         saveAsMenuItem.setEnabled(true);
 
@@ -1638,7 +1645,7 @@ public class PDFDebugger extends JFrame
         {
             return ex.getMessage();
         }
-        if (pageLabels != null)
+        if (pageLabels != null && pageIndex >= 0)
         {
             String[] labels = pageLabels.getLabelsByPageIndices();
             if (labels[pageIndex] != null)

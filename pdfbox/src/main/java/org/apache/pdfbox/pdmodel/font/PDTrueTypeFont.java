@@ -28,6 +28,7 @@ import org.apache.fontbox.FontBoxFont;
 import org.apache.fontbox.ttf.CmapSubtable;
 import org.apache.fontbox.ttf.CmapTable;
 import org.apache.fontbox.ttf.GlyphData;
+import org.apache.fontbox.ttf.GlyphTable;
 import org.apache.fontbox.ttf.PostScriptTable;
 import org.apache.fontbox.ttf.TTFParser;
 import org.apache.fontbox.ttf.TrueTypeFont;
@@ -228,7 +229,7 @@ public class PDTrueTypeFont extends PDSimpleFont implements PDVectorFont
 
             if (mapping.isFallback())
             {
-                LOG.warn("Using fallback font '" + ttfFont + "' for '" + getBaseFont() + "'");
+                LOG.warn("Using fallback font " + ttfFont + " for " + getBaseFont());
             }
         }
         ttf = ttfFont;
@@ -401,8 +402,8 @@ public class PDTrueTypeFont extends PDSimpleFont implements PDVectorFont
             if (!encoding.contains(getGlyphList().codePointToName(unicode)))
             {
                 throw new IllegalArgumentException(
-                    String.format("U+%04X is not available in this font's encoding: %s",
-                                  unicode, encoding.getEncodingName()));
+                    String.format("U+%04X is not available in font %s encoding: %s",
+                                  unicode, getName(), encoding.getEncodingName()));
             }
 
             String name = getGlyphList().codePointToName(unicode);
@@ -438,7 +439,7 @@ public class PDTrueTypeFont extends PDSimpleFont implements PDVectorFont
             if (code == null)
             {
                 throw new IllegalArgumentException(
-                    String.format("U+%04X is not available in this font's Encoding", unicode));
+                    String.format("U+%04X is not available in font %s encoding", unicode, getName()));
             }
             
             return new byte[] { (byte)(int)code };
@@ -477,7 +478,14 @@ public class PDTrueTypeFont extends PDSimpleFont implements PDVectorFont
     public GeneralPath getPath(int code) throws IOException
     {
         int gid = codeToGID(code);
-        GlyphData glyph = ttf.getGlyph().getGlyph(gid);
+        GlyphTable glyphTable = ttf.getGlyph();
+        if (glyphTable == null)
+        {
+            // needs to be caught earlier, see PDFBOX-5587 and PDFBOX-3488
+            throw new IOException("glyf table is missing in font " + getName() +
+                    ", please report this file");
+        }
+        GlyphData glyph = glyphTable.getGlyph(gid);
         
         // some glyphs have no outlines (e.g. space, table, newline)
         if (glyph == null)

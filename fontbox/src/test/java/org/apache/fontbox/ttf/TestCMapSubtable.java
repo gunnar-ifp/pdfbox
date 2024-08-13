@@ -37,7 +37,7 @@ public class TestCMapSubtable
     {
         List<Integer> expectedCharCodes = Arrays.asList(19981, 63847);
         int gid = 8712;
-        File fontFile = new File("target/pdfs", "NotoSansSC-Regular.otf");
+        File fontFile = new File("target/fonts", "NotoSansSC-Regular.otf");
         OTFParser otfParser = new OTFParser(false);
         OpenTypeFont otf = otfParser.parse(fontFile);
 
@@ -55,5 +55,31 @@ public class TestCMapSubtable
 
         Assert.assertEquals(expectedCharCodes, unicodeBmpCharCodes);
         Assert.assertEquals(expectedCharCodes, unicodeFullCharCodes);
+    }
+
+    /**
+     * PDFBOX-4106: getting different gid depending of vertical substitions enabled or not.
+     *
+     * @throws IOException 
+     */
+    @Test
+    public void testVerticalSubstitution() throws IOException
+    {
+        File ipaFont = new File("target/fonts/ipag00303", "ipag.ttf");
+        TrueTypeFont ttf = new TTFParser().parse(ipaFont);
+        
+        CmapLookup unicodeCmapLookup1 = ttf.getUnicodeCmapLookup();
+        int hgid1 = unicodeCmapLookup1.getGlyphId('「');
+        int hgid2 = unicodeCmapLookup1.getGlyphId('」');
+        ttf.enableVerticalSubstitutions();
+        CmapLookup unicodeCmapLookup2 = ttf.getUnicodeCmapLookup();
+        int vgid1 = unicodeCmapLookup2.getGlyphId('「');
+        int vgid2 = unicodeCmapLookup2.getGlyphId('」');
+        System.out.println(hgid1 + " " + hgid2);
+        System.out.println(vgid1 + " " + vgid2);
+        Assert.assertEquals(441, hgid1);
+        Assert.assertEquals(442, hgid2);
+        Assert.assertEquals(7392, vgid1);
+        Assert.assertEquals(7393, vgid2);
     }
 }

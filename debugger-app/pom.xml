@@ -23,8 +23,8 @@
   <parent>
     <groupId>org.apache.pdfbox</groupId>
     <artifactId>pdfbox-parent</artifactId>
-    <version>2.0.28.modified-SNAPSHOT</version>
-    <relativePath>../parent/pom.xml</relativePath>
+    <version>2.0.32-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>debugger-app</artifactId>
@@ -41,17 +41,20 @@
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcmail-jdk15on</artifactId>
+      <artifactId>bcpkix-jdk15to18</artifactId>
+      <version>${bouncycastle.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
+      <artifactId>bcprov-jdk15to18</artifactId>
+      <version>${bouncycastle.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>jbig2-imageio</artifactId>
+      <version>${jbig2.version}</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
@@ -68,7 +71,7 @@
             <Embed-Transitive>true</Embed-Transitive>
             <Embed-Dependency>*;scope=provided;inline=org/apache/**|org/bouncycastle/**|META-INF/services/**</Embed-Dependency>
             <Bundle-DocURL>${project.url}</Bundle-DocURL>
-            <Import-Package>!junit.framework,!junit.textui,javax.*;resolution:=optional,org.apache.avalon.framework.logger;resolution:=optional,org.apache.log;resolution:=optional,*</Import-Package>
+            <Import-Package>javax.*;resolution:=optional,org.apache.avalon.framework.logger;resolution:=optional,org.apache.log;resolution:=optional,*</Import-Package>
             <Main-Class>org.apache.pdfbox.debugger.PDFDebugger</Main-Class>
           </instructions>
         </configuration>

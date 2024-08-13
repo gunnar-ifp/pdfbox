@@ -625,7 +625,19 @@ public class TrueTypeFont implements FontBoxFont, Closeable, Cleaner
 
         // look up in 'cmap'
         int uni = parseUniName(name);
-        return uni >= 0 ? getUnicodeCmapLookup(false).getGlyphId(uni) : 0;
+        if (uni > -1)
+        {
+            CmapLookup cmap = getUnicodeCmapLookup(false);
+            return cmap.getGlyphId(uni);
+        }
+
+        // PDFBOX-5604: assume gnnnnn is a gid
+        if (name.matches("g\\d+"))
+        {
+            return Integer.parseInt(name.substring(1));
+        }
+
+        return 0;
     }
 
     /**

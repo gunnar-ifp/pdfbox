@@ -97,7 +97,7 @@ public class PDDocument implements Closeable
 
     private static final Log LOG = LogFactory.getLog(PDDocument.class);
 
-    /**
+    /*
      * avoid concurrency issues with PDDeviceRGB and deadlock in COSNumber/COSInteger
      */
     static
@@ -374,9 +374,6 @@ public class PDDocument implements Closeable
             throw new IllegalStateException("Cannot sign an empty document");
         }
 
-        int startIndex = Math.min(Math.max(options.getPage(), 0), pageCount - 1);
-        PDPage page = pageTree.get(startIndex);
-
         // Get the AcroForm from the Root-Dictionary and append the annotation
         PDDocumentCatalog catalog = getDocumentCatalog();
         PDAcroForm acroForm = catalog.getAcroForm(null);
@@ -393,10 +390,9 @@ public class PDDocument implements Closeable
         }
 
         PDSignatureField signatureField = null;
-        COSBase cosFieldBase = acroForm.getCOSObject().getDictionaryObject(COSName.FIELDS);
-        if (cosFieldBase instanceof COSArray)
+        COSArray fieldArray = acroForm.getCOSObject().getCOSArray(COSName.FIELDS);
+        if (fieldArray != null)
         {
-            COSArray fieldArray = (COSArray) cosFieldBase;
             fieldArray.setNeedToBeUpdated(true);
             signatureField = findSignatureField(acroForm.getFieldIterator(), sigObject);
         }
@@ -405,12 +401,15 @@ public class PDDocument implements Closeable
             acroForm.getCOSObject().setItem(COSName.FIELDS, new COSArray());
         }
         PDAnnotationWidget firstWidget;
+        PDPage page;
         if (signatureField == null)
         {
             signatureField = new PDSignatureField(acroForm);
             // append the signature object
             signatureField.setValue(sigObject);
             firstWidget = signatureField.getWidgets().get(0);
+            int startIndex = Math.min(Math.max(options.getPage(), 0), pageCount - 1);
+            page = pageTree.get(startIndex);
             // backward linking
             firstWidget.setPage(page);
         }
@@ -418,6 +417,7 @@ public class PDDocument implements Closeable
         {
             firstWidget = signatureField.getWidgets().get(0);
             sigObject.getCOSObject().setNeedToBeUpdated(true);
+            page = null;
         }
 
         // TODO This "overwrites" the settings of the original signature field which might not be intended by the user
@@ -461,33 +461,36 @@ public class PDDocument implements Closeable
             prepareVisibleSignature(firstWidget, acroForm, visualSignature);
         }
 
-        // Create Annotation / Field for signature
-        List<PDAnnotation> annotations = page.getAnnotations();
-
-        // Make /Annots a direct object to avoid problem if it is an existing indirect object: 
-        // it would not be updated in incremental save, and if we'd set the /Annots array "to be updated" 
-        // while keeping it indirect, Adobe Reader would claim that the document had been modified.
-        page.setAnnotations(annotations);
-
-        // Get the annotations of the page and append the signature-annotation to it
-        // take care that page and acroforms do not share the same array (if so, we don't need to add it twice)
-        if (!(checkFields &&
-              annotations instanceof COSArrayList &&
-              acroFormFields instanceof COSArrayList &&
-              ((COSArrayList) annotations).toList().
-                      equals(((COSArrayList) acroFormFields).toList())))
+        if (page != null)
         {
-            // use check to prevent the annotation widget from appearing twice
-            if (checkSignatureAnnotation(annotations, firstWidget))
+            // Create Annotation / Field for signature
+            List<PDAnnotation> annotations = page.getAnnotations();
+
+            // Make /Annots a direct object to avoid problem if it is an existing indirect object: 
+            // it would not be updated in incremental save, and if we'd set the /Annots array "to be updated" 
+            // while keeping it indirect, Adobe Reader would claim that the document had been modified.
+            page.setAnnotations(annotations);
+
+            // Get the annotations of the page and append the signature-annotation to it
+            // take care that page and acroforms do not share the same array (if so, we don't need to add it twice)
+            if (!(checkFields &&
+                  annotations instanceof COSArrayList &&
+                  acroFormFields instanceof COSArrayList &&
+                  ((COSArrayList) annotations).toList().
+                          equals(((COSArrayList) acroFormFields).toList())))
             {
-                firstWidget.getCOSObject().setNeedToBeUpdated(true);
+                // use check to prevent the annotation widget from appearing twice
+                if (checkSignatureAnnotation(annotations, firstWidget))
+                {
+                    firstWidget.getCOSObject().setNeedToBeUpdated(true);
+                }
+                else
+                {
+                    annotations.add(firstWidget);
+                }   
             }
-            else
-            {
-                annotations.add(firstWidget);
-            }   
+            page.getCOSObject().setNeedToBeUpdated(true);
         }
-        page.getCOSObject().setNeedToBeUpdated(true);
     }
 
     /**
@@ -623,7 +626,7 @@ public class PDDocument implements Closeable
         //in case of an existing field keep the original rect
         if (existingRectangle == null || existingRectangle.getCOSArray().size() != 4)
         {
-            COSArray rectArray = (COSArray) annotDict.getDictionaryObject(COSName.RECT);
+            COSArray rectArray = annotDict.getCOSArray(COSName.RECT);
             PDRectangle rect = new PDRectangle(rectArray);
             firstWidget.setRectangle(rect);
         }
@@ -640,10 +643,9 @@ public class PDDocument implements Closeable
     private void assignAcroFormDefaultResource(PDAcroForm acroForm, COSDictionary newDict)
     {
         // read and set/update AcroForm default resource dictionary /DR if available
-        COSBase newBase = newDict.getDictionaryObject(COSName.DR);
-        if (newBase instanceof COSDictionary)
+        COSDictionary newDR = newDict.getCOSDictionary(COSName.DR);
+        if (newDR != null)
         {
-            COSDictionary newDR = (COSDictionary) newBase;
             PDResources defaultResources = acroForm.getDefaultResources();
             if (defaultResources == null)
             {
@@ -852,10 +854,10 @@ public class PDDocument implements Closeable
         if (documentCatalog == null)
         {
             COSDictionary trailer = document.getTrailer();
-            COSBase dictionary = trailer.getDictionaryObject(COSName.ROOT);
-            if (dictionary instanceof COSDictionary)
+            COSDictionary dictionary = trailer.getCOSDictionary(COSName.ROOT);
+            if (dictionary != null)
             {
-                documentCatalog = new PDDocumentCatalog(this, (COSDictionary) dictionary);
+                documentCatalog = new PDDocumentCatalog(this, dictionary);
             }
             else
             {
@@ -956,10 +958,10 @@ public class PDDocument implements Closeable
         List<PDSignature> signatures = new ArrayList<PDSignature>();
         for (PDSignatureField field : getSignatureFields())
         {
-            COSBase value = field.getCOSObject().getDictionaryObject(COSName.V);
+            COSDictionary value = field.getCOSObject().getCOSDictionary(COSName.V);
             if (value != null)
             {
-                signatures.add(new PDSignature((COSDictionary)value));
+                signatures.add(new PDSignature(value));
             }
         }
         return signatures;
@@ -1366,13 +1368,8 @@ public class PDDocument implements Closeable
             throw new IOException("Cannot save a document which has been closed");
         }
 
-        // subset designated fonts
-        for (PDFont font : fontsToSubset)
-        {
-            font.subset();
-        }
-        fontsToSubset.clear();
-        
+        subsetDesignatedFonts();
+
         // save PDF
         COSWriter writer = new COSWriter(output);
         try
@@ -1383,6 +1380,15 @@ public class PDDocument implements Closeable
         {
             writer.close();
         }
+    }
+
+    private void subsetDesignatedFonts() throws IOException
+    {
+        for (PDFont font : fontsToSubset)
+        {
+            font.subset();
+        }
+        fontsToSubset.clear();
     }
 
     /**
@@ -1400,6 +1406,18 @@ public class PDDocument implements Closeable
      * not doing it
      * <a href="https://stackoverflow.com/questions/74836898/">can cause trouble when PDFs get
      * signed</a>. (PDFBox already does this for signature widget annotations)
+     * <p>
+     * Another problem with page-based modifications can occur if the page tree isn't flat: there
+     * won't be an closed update path from the catalog to the page. To fix this, add code like this:
+     * <pre>{@code
+     * COSDictionary parent = page.getCOSObject().getCOSDictionary(COSName.PARENT);
+     * while (parent != null)
+     * {
+     *     parent.setNeedToBeUpdated(true);
+     *     parent = parent.getCOSDictionary(COSName.PARENT);
+     * }
+     * }</pre>
+     * Don't use the input file as target as this will produce a corrupted file.
      *
      * @param output stream to write to. It will be closed when done. It
      * <i><b>must never</b></i> point to the source file or that one will be
@@ -1410,6 +1428,7 @@ public class PDDocument implements Closeable
     
     public void saveIncremental(OutputStream output) throws IOException
     {
+        subsetDesignatedFonts();
         COSWriter writer = null;
         try
         {
@@ -1458,6 +1477,7 @@ public class PDDocument implements Closeable
      */
     public void saveIncremental(OutputStream output, Set<COSDictionary> objectsToWrite) throws IOException
     {
+        subsetDesignatedFonts();
         if (pdfSource == null)
         {
             throw new IllegalStateException("document was not loaded from a file or a stream");
@@ -1515,6 +1535,7 @@ public class PDDocument implements Closeable
      */
     public ExternalSigningSupport saveIncrementalForExternalSigning(OutputStream output) throws IOException
     {
+        subsetDesignatedFonts();
         if (pdfSource == null)
         {
             throw new IllegalStateException("document was not loaded from a file or a stream");

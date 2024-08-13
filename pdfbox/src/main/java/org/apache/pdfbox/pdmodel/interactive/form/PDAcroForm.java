@@ -20,6 +20,7 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 
 import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,6 +50,7 @@ import org.apache.pdfbox.pdmodel.fdf.FDFCatalog;
 import org.apache.pdfbox.pdmodel.fdf.FDFDictionary;
 import org.apache.pdfbox.pdmodel.fdf.FDFDocument;
 import org.apache.pdfbox.pdmodel.fdf.FDFField;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
@@ -73,6 +75,8 @@ public final class PDAcroForm implements COSObjectable
     private Map<String, PDField> fieldCache;
 
     private ScriptingHandler scriptingHandler;
+
+    private final Map<COSName, SoftReference<PDFont>> directFontCache = new HashMap<COSName, SoftReference<PDFont>>();
 
     /**
      * Constructor.
@@ -536,7 +540,8 @@ public final class PDAcroForm implements COSObjectable
         COSBase base = dictionary.getDictionaryObject(COSName.DR);
         if (base instanceof COSDictionary)
         {
-            retval = new PDResources((COSDictionary) base, document.getResourceCache());
+            retval = new PDResources((COSDictionary) base, document.getResourceCache(),
+                    directFontCache);
         }
         return retval;
     }
@@ -668,6 +673,57 @@ public final class PDAcroForm implements COSObjectable
     public void setAppendOnly(boolean appendOnly)
     {
         dictionary.setFlag(COSName.SIG_FLAGS, FLAG_APPEND_ONLY, appendOnly);
+    }
+
+    /**
+     * Return the calculation order in which field values should be recalculated when the value of
+     * any field changes. (Read about "Trigger Events" in the PDF specification)
+     *
+     * @return field list. Note these objects may not be identical to PDField objects retrieved from
+     * other methods (depending on cache setting). The best strategy is to call
+     * {@link #getCOSObject()} to check for identity. The list is not backed by the /CO COSArray in
+     * the document.
+     */
+    public List<PDField> getCalcOrder()
+    {
+        COSArray co = dictionary.getCOSArray(COSName.CO);
+        if (co == null)
+        {
+            return Collections.emptyList();
+        }
+
+        Iterable<PDField> fields = isCachingFields() ? fieldCache.values() : getFieldTree();
+
+        List<PDField> actuals = new ArrayList<PDField>();
+        for (int i = 0; i < co.size(); i++)
+        {
+            COSBase item = co.getObject(i);
+            for (PDField field : fields)
+            {
+                if (field.getCOSObject() == item)
+                {
+                    actuals.add(field);
+                    break;
+                }
+            }
+        }
+        return actuals;
+    }
+
+    /**
+     * Set the calculation order in which field values should be recalculated when the value of any
+     * field changes. (Read about "Trigger Events" in the PDF specification)
+     *
+     * @param fields The field list.
+     */
+    public void setCalcOrder(List<PDField> fields)
+    {
+        COSArray array = new COSArray();
+        for (PDField field : fields)
+        {
+            array.add(field);
+        }
+        dictionary.setItem(COSName.CO, array);
     }
 
     /**

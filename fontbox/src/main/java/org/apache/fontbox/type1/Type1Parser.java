@@ -222,7 +222,10 @@ final class Type1Parser
                     lexer.peekToken().getText().equals("readonly") ||
                     lexer.peekToken().getText().equals("def"))))
             {
-                lexer.nextToken();
+                if ( lexer.nextToken() == null )
+                {
+                    throw new IOException( "Incomplete data while reading encoding of type 1 font" );
+                }
             }
             
             Map<Integer, String> codeToName = new HashMap<Integer, String>();
@@ -644,7 +647,10 @@ final class Type1Parser
         while (!(lexer.peekKind(Token.LITERAL)
                 && lexer.peekToken().getText().equals("CharStrings")))
         {
-            lexer.nextToken();
+            if ( lexer.nextToken() == null )
+            {
+                throw new IOException( "Missing 'CharStrings' dictionary in type 1 font" );
+            }
         }
 
         // CharStrings dict
@@ -888,8 +894,6 @@ final class Type1Parser
     /**
      * Reads the next token and throws an exception if it is not of the given kind
      * and does not have the given value.
-     * 
-     * @return token, never null
      */
     private void read(Token.Kind kind, String name) throws IOException
     {

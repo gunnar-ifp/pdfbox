@@ -193,7 +193,7 @@ public class TTFSubsetterTest
     @Test
     public void testPDFBox3379() throws IOException
     {
-        TrueTypeFont full = new TTFParser().parse("target/pdfs/DejaVuSansMono.ttf");
+        TrueTypeFont full = new TTFParser().parse("target/fonts/DejaVuSansMono.ttf");
         TTFSubsetter ttfSubsetter = new TTFSubsetter(full);
         ttfSubsetter.add('A');
         ttfSubsetter.add(' ');
@@ -254,5 +254,24 @@ public class TTFSubsetterTest
         assertFalse("UC dieresis path should not be empty", subset.getPath("dieresis.uc").getBounds2D().isEmpty());
 
         subset.close();
+    }
+
+    /**
+     * Test font with v3 PostScript table format and no glyph names.
+     *
+     * @throws IOException 
+     */
+    @Test
+    public void testPDFBox5728() throws IOException
+    {
+        TrueTypeFont ttf = new TTFParser().parse("target/fonts/NotoMono-Regular.ttf");
+        PostScriptTable postScript = ttf.getPostScript();
+        assertEquals(3.0, postScript.getFormatType(), 0);
+        assertNull(postScript.getGlyphNames());
+        TTFSubsetter subsetter = new TTFSubsetter(ttf);
+        subsetter.add('a');
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        subsetter.writeToStream(output);
+        ttf.close();
     }
 }

@@ -53,10 +53,10 @@ class GlyfCompositeDescript extends GlyphDescription
      * 
      * @param bais the stream to be read
      * @param glyphTable the Glyphtable containing all glyphs
-     * @param glyphs Set of known glpyhs in this composite glyph chain.
+     * @param level current level
      * @throws IOException is thrown if something went wrong
      */
-    GlyfCompositeDescript(int gid, TTFDataStream bais, GlyphTable glyphTable, Map<Integer, GlyphDescription> glyphs) throws IOException
+    GlyfCompositeDescript(int gid, TTFDataStream bais, GlyphTable glyphTable, int level) throws IOException
     {
         // Load all of the composite components
         final List<GlyphComponent> comps = new ArrayList<GlyphComponent>();
@@ -72,33 +72,22 @@ class GlyfCompositeDescript extends GlyphDescription
             readInstructions(bais, (bais.readUnsignedShort()));
         }
 
-        // Initialize components
-        if ( glyphs==null) glyphs = new HashMap<>();
-        glyphs.put(gid, this);
-        
         int contourOffset = 0, pointOffset = 0;
         for ( GlyphComponent c : comps ) {
-            final Integer index = c.getGlyphIndex();
-            GlyphDescription gd = glyphs.get(index);
-            if ( gd!=null && gd.isComposite() ) {
-                LOG.error("Circular composite glyph reference detected in glyph " + gid + " -> " + index);
-                gd = new GlyfSimpleDescript();
+            final int index = c.getGlyphIndex();
+            GlyphDescription gd = null;
+            try {
+                // TODO: composite unnecessarily cached.
+                GlyphData glyph = glyphTable.getGlyph(index, level);
+                if (glyph == null) {
+                    // TODO: never null for gid inside font's gid range...
+                    LOG.error("Missing glyph description in glyph " + gid + " for for gid " + index);
+                } else {
+                    gd = glyph.getDescription();
+                }
             }
-            if ( gd==null ) {
-                try {
-                    // TODO: composite unnecessarily cached.
-                    GlyphData glyph = glyphTable.getGlyph(index, glyphs);
-                    if (glyph == null) {
-                        // TODO: never null for gid inside font's gid range...
-                        LOG.error("Missing glyph description in glyph " + gid + " for for gid " + index);
-                    } else {
-                        gd = glyph.getDescription();
-                        glyphs.put(index, gd);
-                    }
-                }
-                catch (IOException e) {
-                    LOG.error(e);
-                }
+            catch (IOException e) {
+                LOG.error(e);
             }
             c.init(gd, contourOffset, pointOffset);
             if ( gd!=null ) {
@@ -201,6 +190,15 @@ class GlyfCompositeDescript extends GlyphDescription
         return 0;
     }
 
+    /**
+     * Gets a view to the composite components.
+     * 
+     * @return unmodifiable list of this composite glyph's {@linkplain GlyfCompositeComp components}
+     */
+    public List<GlyphComponent> getComponents()
+    {
+        return Collections.unmodifiableList(Arrays.asList(components));
+    }
 
     private GlyphComponent lookupCompositeCompContour(int contour)
     {

@@ -125,7 +125,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
     private String articleStart = "";
     private String articleEnd = "";
 
-    private int currentPageNo = 0;
+    private int currentPageNo = 1;
     private int startPage = 1;
     private int endPage = Integer.MAX_VALUE;
     private PDOutlineItem startBookmark = null;
@@ -206,7 +206,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
     private void resetEngine()
     {
-        currentPageNo = 0;
+        currentPageNo = 1;
         document = null;
         if (charactersByArticle != null)
         {
@@ -286,11 +286,11 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
 
         for (PDPage page : pages)
         {
-            currentPageNo++;
             if (page.hasContents())
             {
                 processPage(page);
             }
+            currentPageNo++;
         }
     }
 
@@ -964,6 +964,10 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     public void setStartPage(int startPageValue)
     {
+        if (startPageValue <= 0)
+        {
+            LOG.warn("Parameter must be 1-based, but is " + startPageValue);
+        }
         startPage = startPageValue;
     }
 
@@ -986,6 +990,10 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
      */
     public void setEndPage(int endPageValue)
     {
+        if (endPageValue <= 0)
+        {
+            LOG.warn("Parameter must be 1-based, but is " + endPageValue);
+        }
         endPage = endPageValue;
     }
 
@@ -1943,8 +1951,18 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
                 else
                 {
                     // Trim because some decompositions have an extra space, such as U+FC5E
-                    builder.append(Normalizer
-                            .normalize(word.substring(q, q + 1), Normalizer.Form.NFKC).trim());
+                    String normalized = Normalizer.normalize(
+                            word.substring(q, q + 1), Normalizer.Form.NFKC).trim();
+
+                    // Hebrew in Alphabetic Presentation Forms from FB1D to FB4F and
+                    // Arabic Presentation Forms-A from FB50 to FDFF and
+                    // Arabic Presentation Forms-B from FE70 to FEFF
+                    if (0xFB1D <= c && normalized.length() > 1)
+                    {
+                        // Reverse the order of decomposed Hebrew and Arabic letters
+                        normalized = new StringBuilder(normalized).reverse().toString();
+                    }
+                    builder.append(normalized);
                 }
                 p = q + 1;
             }
@@ -1978,7 +1996,7 @@ public class PDFTextStripper extends LegacyPDFStreamEngine
         else
         {
             TextPosition text = item.getTextPosition();
-            lineBuilder.append(text.getUnicode());
+            lineBuilder.append(text.getVisuallyOrderedUnicode());
             wordPositions.add(text);
         }
         return lineBuilder;

@@ -18,9 +18,14 @@ package org.apache.pdfbox.pdfparser;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.fontbox.util.OpenByteArrayOutputStream;
@@ -49,18 +54,38 @@ import static org.apache.pdfbox.util.Charsets.ISO_8859_1;
  */
 public abstract class BaseParser
 {
+    /**
+     * Log instance.
+     */
+    private static final Log LOG = LogFactory.getLog(BaseParser.class);
+
     private static final long OBJECT_NUMBER_THRESHOLD = 10000000000L;
 
     private static final long GENERATION_NUMBER_THRESHOLD = 65535;
 
     static final int MAX_LENGTH_LONG = Long.toString(Long.MAX_VALUE).length();
 
-    private final CharsetDecoder utf8Decoder = Charsets.UTF_8.newDecoder();
+    private static final Charset ALTERNATIVE_CHARSET;
+    static
+    {
+        Charset cs;
+        String charsetName = "Windows-1252";
+        try
+        {
+            cs = Charset.forName(charsetName);
+        }
+        catch (IllegalArgumentException | UnsupportedOperationException e)
+        {
+            cs = ISO_8859_1;
+            LOG.warn("Charset is not supported: " + charsetName + ", falling back to " + cs.name(), e);
+        }
+        ALTERNATIVE_CHARSET = cs;
+    }
 
-    /**
-     * Log instance.
-     */
-    private static final Log LOG = LogFactory.getLog(BaseParser.class);
+    // CharSetDecoders are not threadsafe so not static
+    private final CharsetDecoder utf8Decoder = Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT);
 
     protected static final int E = 'e';
     protected static final int N = 'n';
@@ -235,8 +260,16 @@ public abstract class BaseParser
                 }
             }
         }
-        readExpectedChar('>');
-        readExpectedChar('>');
+        try
+        {
+            readExpectedChar('>');
+            readExpectedChar('>');
+        }
+        catch (IOException exception)
+        {
+            LOG.warn("Invalid dictionary, can't find end of dictionary at offset "
+                    + seqSource.getPosition());
+        }
         return obj;
     }
 
@@ -355,8 +388,6 @@ public abstract class BaseParser
      *
      * The second bug was in this format /Title (c:\) /Producer
      *
-     * This patch moves this code out of the parseCOSString method, so it can be used twice.
-     *
      * @param bracesParameter the number of braces currently open.
      *
      * @return the corrected value of the brace counter
@@ -364,29 +395,38 @@ public abstract class BaseParser
      */
     private int checkForEndOfString(final int bracesParameter) throws IOException
     {
-        int braces = bracesParameter;
+        if (bracesParameter == 0)
+        {
+            return 0;
+        }
+        // Check the next 3 bytes if available
         byte[] nextThreeBytes = new byte[3];
         int amountRead = seqSource.read(nextThreeBytes);
-
-        // Check the next 3 bytes if available
         // The following cases are valid indicators for the end of the string
         // 1. Next line contains another COSObject: CR + LF + '/'
         // 2. COSDictionary ends in the next line: CR + LF + '>'
-        // 3. Next line contains another COSObject: CR + '/'
-        // 4. COSDictionary ends in the next line: CR + '>'
-        if (amountRead == 3 && nextThreeBytes[0] == ASCII_CR)
-        {
-            if ( (nextThreeBytes[1] == ASCII_LF && (nextThreeBytes[2] == '/') || nextThreeBytes[2] == '>')
-                    || nextThreeBytes[1] == '/' || nextThreeBytes[1] == '>')
-            {
-                braces = 0;
-            }
-        }
+        // 3. Next line contains another COSObject: LF + '/'
+        // 4. COSDictionary ends in the next line: LF + '>'
+        // 5. Next line contains another COSObject: CR + '/'
+        // 6. COSDictionary ends in the next line: CR + '>'
         if (amountRead > 0)
         {
             seqSource.unread(nextThreeBytes, 0, amountRead);
         }
-        return braces;
+        if (amountRead < 3)
+        {
+            return bracesParameter;
+        }
+        if (((nextThreeBytes[0] == ASCII_CR || nextThreeBytes[0] == ASCII_LF)
+                && (nextThreeBytes[1] == '/' || nextThreeBytes[1] == '>')) //
+                || //
+                (nextThreeBytes[0] == ASCII_CR && nextThreeBytes[1] == ASCII_LF
+                        && (nextThreeBytes[2] == '/' || nextThreeBytes[2] == '>')) //
+        )
+        {
+            return 0;
+        }
+        return bracesParameter;
     }
 
     /**
@@ -749,18 +789,31 @@ public abstract class BaseParser
         {
             seqSource.unread(c);
         }
-        
+
+        return COSName.getPDFName(decodeBuffer(buffer));
+    }
+
+    /**
+     * Tries to decode the buffer cotent to an UTF-8 String.
+     * If that fails, tries the alternative Encoding.
+     * @param buffer the {@link ByteArrayOutputStream} containing the bytes to decode
+     * @return the decoded String
+     */
+    private String decodeBuffer(OpenByteArrayOutputStream buffer) throws UnsupportedEncodingException
+    {
         try
         {
-            return COSName.getPDFName(utf8Decoder.decode(ByteBuffer.wrap(buffer.array(), 0, buffer.size())).toString());
+            return utf8Decoder.decode(ByteBuffer.wrap(buffer.array(), 0, buffer.size())).toString();
         }
         catch (CharacterCodingException e)
         {
             // some malformed PDFs don't use UTF-8 see PDFBOX-3347
-            return COSName.getPDFName(new String(buffer.array(), 0, buffer.size(), Charsets.WINDOWS_1252));
+            LOG.debug("Buffer could not be decoded using StandardCharsets.UTF_8 - "
+//                  + "trying " + ALTERNATIVE_CHARSET.name(), e);
+            return new String(buffer.array(), 0, buffer.size(), ALTERNATIVE_CHARSET);
         }
     }
-    
+
     /**
      * This will parse a boolean object from the stream.
      *
@@ -894,7 +947,7 @@ public abstract class BaseParser
             {
                 LOG.warn("Skipped unexpected dir object = '" + badString + "' at offset "
                         + seqSource.getPosition() + " (start offset: " + startOffset + ")");
-                return COSNull.NULL;
+                return this instanceof PDFStreamParser ? null : COSNull.NULL;
             }
         }
         return null;

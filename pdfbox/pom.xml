@@ -23,8 +23,8 @@
     <parent>
         <groupId>org.apache.pdfbox</groupId>
         <artifactId>pdfbox-parent</artifactId>
-        <version>2.0.28.modified-SNAPSHOT</version>
-        <relativePath>../parent/pom.xml</relativePath>
+        <version>2.0.32-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>pdfbox</artifactId>
@@ -35,10 +35,10 @@
         The Apache PDFBox library is an open source Java tool for working with PDF documents.
     </description>
     <inceptionYear>2002</inceptionYear>
-
+    
     <properties>
     </properties>
-
+    
     <dependencies>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
@@ -48,20 +48,26 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
+            <version>${commons-logging.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcmail-jdk15on</artifactId>
+            <artifactId>bcpkix-jdk15to18</artifactId>
+            <version>${bouncycastle.version}</version>
+            <scope>compile</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk15on</artifactId>
+            <artifactId>bcprov-jdk15to18</artifactId>
+            <version>${bouncycastle.version}</version>
+            <scope>compile</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -73,6 +79,7 @@
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>jbig2-imageio</artifactId>
+            <version>${jbig2.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -87,11 +94,13 @@
         <dependency>
             <groupId>com.github.jai-imageio</groupId>
             <artifactId>jai-imageio-core</artifactId>
+            <version>${jai.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.github.jai-imageio</groupId>
             <artifactId>jai-imageio-jpeg2000</artifactId>
+            <version>${jai.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -710,6 +719,19 @@
                             <outputDirectory>${project.build.directory}/fonts</outputDirectory>
                             <outputFileName>PDFBOX-5484.ttf</outputFileName>
                             <sha512>7c3d8bbc18654315d6341a277dcd5c66218b95c43baf190b6e32f77817d17bab421ef76f2c904b46c97f84c49b00d58525449cff970897010534d6aa2812a4e2</sha512>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>PDFBOX-5639</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://issues.apache.org/jira/secure/attachment/13061409/incorrect_password.pdf</url>
+                            <outputDirectory>${project.build.directory}/pdfs</outputDirectory>
+                            <outputFileName>PDFBOX-5639.pdf</outputFileName>
+                            <sha512>6904a5f8fe12599a4ca49914158024ebd3533cb2e1ef02127d9d99291c20e68c449cd40ba00f2a8d1295b083fcffd44b30ed1ce5a16bfcd0bb37a25f8581c67d</sha512>
                         </configuration>
                     </execution>
                 </executions>

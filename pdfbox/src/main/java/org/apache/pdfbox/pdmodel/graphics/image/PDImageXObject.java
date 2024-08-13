@@ -80,6 +80,10 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
 
     // initialize to MAX_VALUE as we prefer lower subsampling when keeping/replacing cache.
     private int cachedImageSubsampling = Integer.MAX_VALUE;
+    // indicates whether this image has an JPX-based filter applied
+    private boolean hasJPXFilter = false;
+    // is set to true after reading some values from a JPX-based image
+    private boolean jpxValuesInitialized = false;
 
     /**
      * current resource dictionary (has color spaces)
@@ -143,18 +147,7 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
         List<COSName> filters = stream.getFilters();
         if (filters != null && !filters.isEmpty() && COSName.JPX_DECODE.equals(filters.get(filters.size()-1)))
         {
-            COSInputStream is = null;
-            try
-            {
-                is = stream.createInputStream();
-                DecodeResult decodeResult = is.getDecodeResult();
-                stream.getCOSObject().addAll(decodeResult.getParameters());
-                this.colorSpace = decodeResult.getJPXColorSpace();
-            }
-            finally
-            {
-                IOUtils.closeQuietly(is);
-            }
+            hasJPXFilter = true;
         }
     }
 
@@ -500,7 +493,7 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
                 return cached;
             }
         }
-
+        initJPXValues();
         // get RGB image w/o reference because applyMask might modify it, take long time and a lot of memory. 
         final BufferedImage image;
         final PDImageXObject softMask = getSoftMask();
@@ -744,6 +737,40 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
         return color < 0 ? 0 : color > 255 ? 255 : color;
     }
 
+    private void initJPXValues()
+    {
+        if (!hasJPXFilter || jpxValuesInitialized)
+        {
+            return;
+        }
+        // some of the dictionary values of the COSStream may be overwritten by values which are extracted from the
+        // image itself, such as
+        // width and height of the image
+        // bits per component
+        // the colorspace of the image is used if the dictionary doesn't provide any value
+        PDStream stream = getStream();
+        COSInputStream is = null;
+        try
+        {
+            is = stream.createInputStream();
+            DecodeResult decodeResult = is.getDecodeResult();
+            stream.getCOSObject().addAll(decodeResult.getParameters());
+            if (colorSpace == null)
+            {
+                colorSpace = decodeResult.getJPXColorSpace();
+            }
+            jpxValuesInitialized = true;
+        }
+        catch (IOException exception)
+        {
+            LOG.debug("Can't initialize JPX based values", exception);
+        }
+        finally
+        {
+            IOUtils.closeQuietly(is);
+        }
+    }
+
     /**
      * High-quality image scaling.
      */
@@ -847,6 +874,7 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
         }
         else
         {
+            initJPXValues();
             return getCOSObject().getInt(COSName.BITS_PER_COMPONENT, COSName.BPC);
         }
     }
@@ -887,9 +915,13 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
             else if (isStencil())
             {
                 // stencil mask color space must be gray, it is often missing
-                return PDDeviceGray.INSTANCE;
+                colorSpace = PDDeviceGray.INSTANCE;
             }
             else
+            {
+                initJPXValues();
+            }
+            if (colorSpace == null)
             {
                 // an image without a color space is always broken
                 throw new IOException("could not determine color space");
@@ -933,6 +965,7 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
     @Override
     public int getHeight()
     {
+        initJPXValues();
         return getCOSObject().getInt(COSName.HEIGHT);
     }
 
@@ -945,6 +978,7 @@ public final class PDImageXObject extends PDXObject implements PDImage, Cleaner
     @Override
     public int getWidth()
     {
+        initJPXValues();
         return getCOSObject().getInt(COSName.WIDTH);
     }
 

@@ -198,6 +198,10 @@ public final class Type1Font implements Type1CharStringReader, EncodedFont, Font
             {
                 type1 = getType1CharString(".notdef");
             }
+            else if (bytes == null)
+            {
+                throw new IOException(".notdef is not defined");
+            }
             else
             {
                 type1 = new Type1CharString(this, fontName, name, bytes, subrs);

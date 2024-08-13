@@ -53,6 +53,8 @@ public final class TTFSubsetter
     
     private static final byte[] PAD_BUF = new byte[] { 0, 0, 0 };
 
+    private static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC"); // clone before using
+
     private final TrueTypeFont ttf;
     private final CmapLookup unicodeCmap;
     private final SortedMap<Integer, Integer> uniToGID;
@@ -380,20 +382,22 @@ public final class TTFSubsetter
         MaximumProfileTable p = ttf.getMaximumProfile();
         writeFixed(out, 1.0);
         writeUint16(out, glyphIds.size());
-        writeUint16(out, p.getMaxPoints());
-        writeUint16(out, p.getMaxContours());
-        writeUint16(out, p.getMaxCompositePoints());
-        writeUint16(out, p.getMaxCompositeContours());
-        writeUint16(out, p.getMaxZones());
-        writeUint16(out, p.getMaxTwilightPoints());
-        writeUint16(out, p.getMaxStorage());
-        writeUint16(out, p.getMaxFunctionDefs());
-        writeUint16(out, p.getMaxInstructionDefs());
-        writeUint16(out, p.getMaxStackElements());
-        writeUint16(out, p.getMaxSizeOfInstructions());
-        writeUint16(out, p.getMaxComponentElements());
-        writeUint16(out, p.getMaxComponentDepth());
-
+        if (p.getVersion() >= 1.0f)
+        {
+            writeUint16(out, p.getMaxPoints());
+            writeUint16(out, p.getMaxContours());
+            writeUint16(out, p.getMaxCompositePoints());
+            writeUint16(out, p.getMaxCompositeContours());
+            writeUint16(out, p.getMaxZones());
+            writeUint16(out, p.getMaxTwilightPoints());
+            writeUint16(out, p.getMaxStorage());
+            writeUint16(out, p.getMaxFunctionDefs());
+            writeUint16(out, p.getMaxInstructionDefs());
+            writeUint16(out, p.getMaxStackElements());
+            writeUint16(out, p.getMaxSizeOfInstructions());
+            writeUint16(out, p.getMaxComponentElements());
+            writeUint16(out, p.getMaxComponentDepth());
+        }
         out.flush();
         return bos.toByteArray();
     }
@@ -549,11 +553,11 @@ public final class TTFSubsetter
             {
                 is.close();
             }
-            if (glyphIdsToAdd != null)
+            hasNested = glyphIdsToAdd != null;
+            if (hasNested)
             {
                 glyphIds.addAll(glyphIdsToAdd);
             }
-            hasNested = glyphIdsToAdd != null;
         }
         while (hasNested);
     }
@@ -806,7 +810,8 @@ public final class TTFSubsetter
     private byte[] buildPostTable() throws IOException
     {
         PostScriptTable post = ttf.getPostScript();
-        if (post == null || keepTables != null && !keepTables.contains("post"))
+        if (post == null || post.getGlyphNames() == null ||
+                keepTables != null && !keepTables.contains("post"))
         {
             return null;
         }
@@ -1064,7 +1069,7 @@ public final class TTFSubsetter
     private void writeLongDateTime(DataOutputStream out, Calendar calendar) throws IOException
     {
         // inverse operation of TTFDataStream.readInternationalDate()
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        Calendar cal = Calendar.getInstance((TimeZone) TIMEZONE_UTC.clone());
         cal.set(1904, 0, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
         long millisFor1904 = cal.getTimeInMillis();

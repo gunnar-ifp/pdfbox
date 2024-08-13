@@ -540,7 +540,9 @@ public abstract class SecurityHandler
      */
     public void encryptStream(COSStream stream, long objNum, int genNum) throws IOException
     {
-        byte[] rawData = IOUtils.toByteArray(stream.createRawInputStream());
+        InputStream is = stream.createRawInputStream();
+        byte[] rawData = IOUtils.toByteArray(is);
+        is.close();
         ByteArrayInputStream encryptedStream = new ByteArrayInputStream(rawData);
         OutputStream output = stream.createRawOutputStream();
         try
@@ -656,7 +658,7 @@ public abstract class SecurityHandler
     }
 
     /**
-     * Getter of the property <tt>keyLength</tt>.
+     * Getter of the property <code>keyLength</code>.
      * @return Returns the key length in bits.
      */
     public int getKeyLength()
@@ -665,7 +667,7 @@ public abstract class SecurityHandler
     }
 
     /**
-     * Setter of the property <tt>keyLength</tt>.
+     * Setter of the property <code>keyLength</code>.
      *
      * @param keyLen The key length to set in bits.
      */

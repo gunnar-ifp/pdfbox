@@ -636,17 +636,11 @@ public class CFFParser
         List<Map<String, Object>> privateDictionaries = new LinkedList<Map<String, Object>>();
         List<Map<String, Object>> fontDictionaries = new LinkedList<Map<String, Object>>();
 
+        boolean privateDictPopulated = false;
         for (byte[] bytes : fdIndex)
         {
             CFFDataInput fontDictInput = new CFFDataInput(bytes);
             DictData fontDict = readDictData(fontDictInput);
-
-            // read private dict
-            DictData.Entry privateEntry = fontDict.getEntry("Private");
-            if (privateEntry == null || privateEntry.size() < 2)
-            {
-                throw new IOException("Font DICT invalid without \"Private\" entry");
-            }
 
             // font dict
             Map<String, Object> fontDictMap = new LinkedHashMap<String, Object>(4);
@@ -657,12 +651,23 @@ public class CFFParser
             // TODO OD-4 : Add here other keys
             fontDictionaries.add(fontDictMap);
 
+            // read private dict
+            DictData.Entry privateEntry = fontDict.getEntry("Private");
+            if (privateEntry == null || privateEntry.size() < 2)
+            {
+                // PDFBOX-5843 don't abort here, and don't skip empty bytes entries, because
+                // getLocalSubrIndex() expects subr at a specific index
+                privateDictionaries.add(new HashMap<String, Object>());
+                continue;
+            }
+
             int privateOffset = privateEntry.getNumber(1).intValue();
             input.setPosition(privateOffset);
             int privateSize = privateEntry.getNumber(0).intValue();
             DictData privateDict = readDictData(input, privateSize);
 
             // populate private dict
+            privateDictPopulated = true;
             Map<String, Object> privDict = readPrivateDict(privateDict);
             privateDictionaries.add(privDict);
 
@@ -673,6 +678,11 @@ public class CFFParser
                 input.setPosition(privateOffset + (Integer) localSubrOffset);
                 privDict.put("Subrs", readIndexData(input));
             }
+        }
+
+        if (!privateDictPopulated)
+        {
+            throw new IOException("Font DICT invalid without \"Private\" entry");
         }
 
         // font-dict (FD) select
