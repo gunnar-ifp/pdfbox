@@ -71,30 +71,33 @@ public final class COSInputStream extends FilterInputStream
             return new COSInputStream(in, Collections.<DecodeResult>emptyList());
         }
 
-        List<DecodeResult> results = new ArrayList<DecodeResult>(filters.size());
-        if (filters.size() > 1)
-        {
-            Set<Filter> filterSet = new HashSet<Filter>(filters);
-            if (filterSet.size() != filters.size())
-            {
-                List<Filter> reducedFilterList = new ArrayList<Filter>();
-                for (Filter filter : filters)
-                {
-                    if (!reducedFilterList.contains(filter))
-                    {
-                        reducedFilterList.add(filter);
-                    }
-                }
-                // replace origin list with the reduced one
-                filters = reducedFilterList;
-                LOG.warn("Removed duplicated filter entries");
-            }
+        final List<DecodeResult> results = new ArrayList<DecodeResult>(filters.size());
+        final Set<Filter> distinct;
+        
+        // PDFBOX-5783 removed duplicates but then indexed decode params with the new indexes. We try a bit better:
+        // If params size matches, then decode param index will be the original index, otherwise the reduced index.
+        final int paramsSize;
+        if ( filters.size() == 1 ) {
+            distinct = null;
+            paramsSize = 1;
+        } else {
+            distinct = new HashSet<Filter>(1 + (int)(filters.size() / 0.75f));
+            COSBase obj = parameters.getDictionaryObject(COSName.DP, COSName.DECODE_PARMS);
+            paramsSize = obj instanceof COSArray ? ((COSArray)obj).size() : 1;
         }
-        // apply filters
+        
+        // apply filters, remove duplicate filters
         InputStream input = in;
-        if (scratchFile != null)
+        for (int i = 0, dpIdx = 0; i < filters.size(); i++)
         {
-            for (int i = 0; i < filters.size(); i++)
+            final Filter filter = filters.get(i);
+            if ( distinct != null && !distinct.add(filter) ) {
+                if ( distinct.size() == i ) LOG.warn("Removed duplicated filter entries");
+                if ( paramsSize >= filters.size() ) dpIdx++;
+                continue;
+            }
+            
+            if (scratchFile != null)
             {
                 // initial input stream must only be closed by us if we have a replacement.
                 // all other ones must  closed by us in case of errors.
@@ -103,7 +106,7 @@ public final class COSInputStream extends FilterInputStream
                     // scratch file
                     RandomAccess buffer = scratchFile.createBuffer();
                     try {
-                        results.add(filters.get(i).decode(input, new RandomAccessOutputStream(buffer), parameters, i, options));
+                        results.add(filter.decode(input, new RandomAccessOutputStream(buffer), parameters, dpIdx++, options));
                         input = new RandomAccessInputStream(buffer, true);
                         buffer = null;
                     }
@@ -115,14 +118,10 @@ public final class COSInputStream extends FilterInputStream
                     IOUtils.closeQuietly(previous);
                 }
             }
-        }
-        else
-        {
-            // in-memory
-            for (int i = 0; i < filters.size(); i++)
+            else
             {
                 OpenByteArrayOutputStream output = OpenByteArrayOutputStream.estimate(in.available());
-                results.add(filters.get(i).decode(input, output, parameters, i, options));
+                results.add(filter.decode(input, output, parameters, dpIdx++, options));
                 input = new ByteArrayInputStream(output.array(), 0, output.size());
             }
         }
