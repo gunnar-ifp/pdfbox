@@ -18,8 +18,8 @@
 package org.apache.pdfbox.cos;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+
+import org.apache.fontbox.util.primitive.Int2IntHashMap;
 
 /**
  * The "PDFDocEncoding" encoding. Note that this is *not* a Type 1 font encoding, it is used only
@@ -27,17 +27,12 @@ import java.util.Map;
  */
 final class PDFDocEncoding
 {
-    private static final Integer MISSING = -1;
-    
     static final char REPLACEMENT_CHARACTER = '\uFFFD';
-    static final char[] CODE_TO_UNI;
-    static final Map<Integer, Integer> UNI_TO_CODE;
+    static final char[] CODE_TO_UNI = new char[256];
+    static final Int2IntHashMap UNI_TO_CODE = new Int2IntHashMap(40);
 
     static
     {
-        CODE_TO_UNI = new char[256];
-        UNI_TO_CODE = new HashMap<>(64);
-
         Arrays.fill(CODE_TO_UNI, '\uFFFF');
         
         // deviations (based on the table in ISO 32000-1:2008)
@@ -96,7 +91,7 @@ final class PDFDocEncoding
                 CODE_TO_UNI[code] = (char)code;
             }
             else if ( ch != REPLACEMENT_CHARACTER ) {
-                UNI_TO_CODE.put((int)ch, code);
+                UNI_TO_CODE.put(ch, code);
             }
         }
     }
@@ -149,7 +144,7 @@ final class PDFDocEncoding
         // replacement mapping is wrong, but keeps compatibility with older versions
         return ch < 256 && CODE_TO_UNI[ch] == ch ? ch
             : ch == REPLACEMENT_CHARACTER ? 0x9F
-                : UNI_TO_CODE.getOrDefault((int)ch, MISSING);
+                : UNI_TO_CODE.getOrDefault(ch, -1);
     }
     
 }
