@@ -21,6 +21,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 /**
@@ -79,17 +82,38 @@ public class PDFDocEncodingTest
         deviations.add(String.valueOf('\u20AC')); // EURO SIGN
         // end of deviations
     }
+
+    @Test
+    public void testTables()
+    {
+        for ( int i : PDFDocEncoding.CODE_TO_UNI )
+        {
+            assertNotEquals(0xffff, i);
+        }
+        assertEquals(256 - 2, PDFDocEncoding.UNI_TO_CODE.size());
+    }
     
     @Test
     public void testDeviations()
     {
         for (String deviation: deviations)
         {
+            assertTrue(PDFDocEncoding.containsChar(deviation.charAt(0)));
             COSString cosString = new COSString(deviation);
             assertEquals(cosString.getString(), deviation);
         }
     }
 
+    @Test
+    public void testReplacement()
+    {
+        assertTrue(PDFDocEncoding.containsChar(PDFDocEncoding.REPLACEMENT_CHARACTER));
+        String deviation = "" + PDFDocEncoding.REPLACEMENT_CHARACTER;
+        COSString cosString = new COSString(deviation);
+        assertEquals("9F", cosString.toHexString());
+        assertEquals(cosString.getString(), deviation);
+    }
+    
     /**
      * PDFBOX-3864: Test that chars smaller than 256 which are NOT part of PDFDocEncoding are
      * handled correctly.

@@ -18,6 +18,7 @@
 package org.apache.pdfbox.cos;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,16 +28,18 @@ import java.util.Map;
  */
 final class PDFDocEncoding
 {
-    private static final char REPLACEMENT_CHARACTER = '\uFFFD';
+    static final char REPLACEMENT_CHARACTER = '\uFFFD';
 
-    private static final int[] CODE_TO_UNI;
-    private static final Map<Character, Integer> UNI_TO_CODE;
+    static final int[] CODE_TO_UNI;
+    static final Map<Character, Integer> UNI_TO_CODE;
 
     static
     {
         CODE_TO_UNI = new int[256];
         UNI_TO_CODE = new HashMap<Character, Integer>(256);
 
+        Arrays.fill(CODE_TO_UNI, 0xffff);
+        
         // initialize with basically ISO-8859-1
         for (int i = 0; i < 256; i++)
         {
@@ -102,6 +105,8 @@ final class PDFDocEncoding
         set(0x9E, '\u017E'); // LATIN SMALL LETTER Z WITH CARON
         set(0x9F, REPLACEMENT_CHARACTER); // undefined
         set(0xA0, '\u20AC'); // EURO SIGN
+        // "block 3"
+        set(0xAD, REPLACEMENT_CHARACTER); // undefined
         // end of deviations
     }
     
@@ -112,7 +117,10 @@ final class PDFDocEncoding
     private static void set(int code, char unicode)
     {
         CODE_TO_UNI[code] = unicode;
-        UNI_TO_CODE.put(unicode, code);
+        if ( unicode != REPLACEMENT_CHARACTER || code == 0x9F )
+        {
+            UNI_TO_CODE.put(unicode, code);
+        }
     }
 
     /**
