@@ -17,7 +17,6 @@
 
 package org.apache.pdfbox.cos;
 
-import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,99 +27,82 @@ import java.util.Map;
  */
 final class PDFDocEncoding
 {
+    private static final Integer MISSING = -1;
+    
     static final char REPLACEMENT_CHARACTER = '\uFFFD';
-
-    static final int[] CODE_TO_UNI;
-    static final Map<Character, Integer> UNI_TO_CODE;
+    static final char[] CODE_TO_UNI;
+    static final Map<Integer, Integer> UNI_TO_CODE;
 
     static
     {
-        CODE_TO_UNI = new int[256];
-        UNI_TO_CODE = new HashMap<Character, Integer>(256);
+        CODE_TO_UNI = new char[256];
+        UNI_TO_CODE = new HashMap<>(64);
 
-        Arrays.fill(CODE_TO_UNI, 0xffff);
+        Arrays.fill(CODE_TO_UNI, '\uFFFF');
         
-        // initialize with basically ISO-8859-1
-        for (int i = 0; i < 256; i++)
-        {
-            // skip entries not in Unicode column
-            if (i > 0x17 && i < 0x20)
-            {
-                continue;
-            }
-            if (i > 0x7E && i < 0xA1)
-            {
-                continue;
-            }
-            if (i == 0xAD)
-            {
-                continue;
-            }
-            
-            set(i, (char)i);
-        }
-
-        // then do all deviations (based on the table in ISO 32000-1:2008)
+        // deviations (based on the table in ISO 32000-1:2008)
         // block 1
-        set(0x18, '\u02D8'); // BREVE
-        set(0x19, '\u02C7'); // CARON
-        set(0x1A, '\u02C6'); // MODIFIER LETTER CIRCUMFLEX ACCENT
-        set(0x1B, '\u02D9'); // DOT ABOVE
-        set(0x1C, '\u02DD'); // DOUBLE ACUTE ACCENT
-        set(0x1D, '\u02DB'); // OGONEK
-        set(0x1E, '\u02DA'); // RING ABOVE
-        set(0x1F, '\u02DC'); // SMALL TILDE
+        CODE_TO_UNI[0x18] = '\u02D8'; // BREVE
+        CODE_TO_UNI[0x19] = '\u02C7'; // CARON
+        CODE_TO_UNI[0x1A] = '\u02C6'; // MODIFIER LETTER CIRCUMFLEX ACCENT
+        CODE_TO_UNI[0x1B] = '\u02D9'; // DOT ABOVE
+        CODE_TO_UNI[0x1C] = '\u02DD'; // DOUBLE ACUTE ACCENT
+        CODE_TO_UNI[0x1D] = '\u02DB'; // OGONEK
+        CODE_TO_UNI[0x1E] = '\u02DA'; // RING ABOVE
+        CODE_TO_UNI[0x1F] = '\u02DC'; // SMALL TILDE
         // block 2
-        set(0x7F, REPLACEMENT_CHARACTER); // undefined
-        set(0x80, '\u2022'); // BULLET
-        set(0x81, '\u2020'); // DAGGER
-        set(0x82, '\u2021'); // DOUBLE DAGGER
-        set(0x83, '\u2026'); // HORIZONTAL ELLIPSIS
-        set(0x84, '\u2014'); // EM DASH
-        set(0x85, '\u2013'); // EN DASH
-        set(0x86, '\u0192'); // LATIN SMALL LETTER SCRIPT F
-        set(0x87, '\u2044'); // FRACTION SLASH (solidus)
-        set(0x88, '\u2039'); // SINGLE LEFT-POINTING ANGLE QUOTATION MARK
-        set(0x89, '\u203A'); // SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
-        set(0x8A, '\u2212'); // MINUS SIGN
-        set(0x8B, '\u2030'); // PER MILLE SIGN
-        set(0x8C, '\u201E'); // DOUBLE LOW-9 QUOTATION MARK (quotedblbase)
-        set(0x8D, '\u201C'); // LEFT DOUBLE QUOTATION MARK (quotedblleft)
-        set(0x8E, '\u201D'); // RIGHT DOUBLE QUOTATION MARK (quotedblright)
-        set(0x8F, '\u2018'); // LEFT SINGLE QUOTATION MARK (quoteleft)
-        set(0x90, '\u2019'); // RIGHT SINGLE QUOTATION MARK (quoteright)
-        set(0x91, '\u201A'); // SINGLE LOW-9 QUOTATION MARK (quotesinglbase)
-        set(0x92, '\u2122'); // TRADE MARK SIGN
-        set(0x93, '\uFB01'); // LATIN SMALL LIGATURE FI
-        set(0x94, '\uFB02'); // LATIN SMALL LIGATURE FL
-        set(0x95, '\u0141'); // LATIN CAPITAL LETTER L WITH STROKE
-        set(0x96, '\u0152'); // LATIN CAPITAL LIGATURE OE
-        set(0x97, '\u0160'); // LATIN CAPITAL LETTER S WITH CARON
-        set(0x98, '\u0178'); // LATIN CAPITAL LETTER Y WITH DIAERESIS
-        set(0x99, '\u017D'); // LATIN CAPITAL LETTER Z WITH CARON
-        set(0x9A, '\u0131'); // LATIN SMALL LETTER DOTLESS I
-        set(0x9B, '\u0142'); // LATIN SMALL LETTER L WITH STROKE
-        set(0x9C, '\u0153'); // LATIN SMALL LIGATURE OE
-        set(0x9D, '\u0161'); // LATIN SMALL LETTER S WITH CARON
-        set(0x9E, '\u017E'); // LATIN SMALL LETTER Z WITH CARON
-        set(0x9F, REPLACEMENT_CHARACTER); // undefined
-        set(0xA0, '\u20AC'); // EURO SIGN
+        CODE_TO_UNI[0x7F] = REPLACEMENT_CHARACTER; // undefined
+        CODE_TO_UNI[0x80] = '\u2022'; // BULLET
+        CODE_TO_UNI[0x81] = '\u2020'; // DAGGER
+        CODE_TO_UNI[0x82] = '\u2021'; // DOUBLE DAGGER
+        CODE_TO_UNI[0x83] = '\u2026'; // HORIZONTAL ELLIPSIS
+        CODE_TO_UNI[0x84] = '\u2014'; // EM DASH
+        CODE_TO_UNI[0x85] = '\u2013'; // EN DASH
+        CODE_TO_UNI[0x86] = '\u0192'; // LATIN SMALL LETTER SCRIPT F
+        CODE_TO_UNI[0x87] = '\u2044'; // FRACTION SLASH (solidus)
+        CODE_TO_UNI[0x88] = '\u2039'; // SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+        CODE_TO_UNI[0x89] = '\u203A'; // SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+        CODE_TO_UNI[0x8A] = '\u2212'; // MINUS SIGN
+        CODE_TO_UNI[0x8B] = '\u2030'; // PER MILLE SIGN
+        CODE_TO_UNI[0x8C] = '\u201E'; // DOUBLE LOW-9 QUOTATION MARK (quotedblbase)
+        CODE_TO_UNI[0x8D] = '\u201C'; // LEFT DOUBLE QUOTATION MARK (quotedblleft)
+        CODE_TO_UNI[0x8E] = '\u201D'; // RIGHT DOUBLE QUOTATION MARK (quotedblright)
+        CODE_TO_UNI[0x8F] = '\u2018'; // LEFT SINGLE QUOTATION MARK (quoteleft)
+        CODE_TO_UNI[0x90] = '\u2019'; // RIGHT SINGLE QUOTATION MARK (quoteright)
+        CODE_TO_UNI[0x91] = '\u201A'; // SINGLE LOW-9 QUOTATION MARK (quotesinglbase)
+        CODE_TO_UNI[0x92] = '\u2122'; // TRADE MARK SIGN
+        CODE_TO_UNI[0x93] = '\uFB01'; // LATIN SMALL LIGATURE FI
+        CODE_TO_UNI[0x94] = '\uFB02'; // LATIN SMALL LIGATURE FL
+        CODE_TO_UNI[0x95] = '\u0141'; // LATIN CAPITAL LETTER L WITH STROKE
+        CODE_TO_UNI[0x96] = '\u0152'; // LATIN CAPITAL LIGATURE OE
+        CODE_TO_UNI[0x97] = '\u0160'; // LATIN CAPITAL LETTER S WITH CARON
+        CODE_TO_UNI[0x98] = '\u0178'; // LATIN CAPITAL LETTER Y WITH DIAERESIS
+        CODE_TO_UNI[0x99] = '\u017D'; // LATIN CAPITAL LETTER Z WITH CARON
+        CODE_TO_UNI[0x9A] = '\u0131'; // LATIN SMALL LETTER DOTLESS I
+        CODE_TO_UNI[0x9B] = '\u0142'; // LATIN SMALL LETTER L WITH STROKE
+        CODE_TO_UNI[0x9C] = '\u0153'; // LATIN SMALL LIGATURE OE
+        CODE_TO_UNI[0x9D] = '\u0161'; // LATIN SMALL LETTER S WITH CARON
+        CODE_TO_UNI[0x9E] = '\u017E'; // LATIN SMALL LETTER Z WITH CARON
+        CODE_TO_UNI[0x9F] = REPLACEMENT_CHARACTER; // undefined
+        CODE_TO_UNI[0xA0] = '\u20AC'; // EURO SIGN
         // "block 3"
-        set(0xAD, REPLACEMENT_CHARACTER); // undefined
+        CODE_TO_UNI[0xAD] = REPLACEMENT_CHARACTER; // undefined
         // end of deviations
+
+        // initialize with basically ISO-8859-1
+        for (int code = 0; code < 256; code++) {
+            char ch = CODE_TO_UNI[code];
+            if ( ch == 0xffff ) {
+                CODE_TO_UNI[code] = (char)code;
+            }
+            else if ( ch != REPLACEMENT_CHARACTER ) {
+                UNI_TO_CODE.put((int)ch, code);
+            }
+        }
     }
     
     private PDFDocEncoding()
     {
-    }
-
-    private static void set(int code, char unicode)
-    {
-        CODE_TO_UNI[code] = unicode;
-        if ( unicode != REPLACEMENT_CHARACTER || code == 0x9F )
-        {
-            UNI_TO_CODE.put(unicode, code);
-        }
     }
 
     /**
@@ -131,14 +113,7 @@ final class PDFDocEncoding
         StringBuilder sb = new StringBuilder(bytes.length);
         for (byte b : bytes)
         {
-            if ((b & 0xff) >= CODE_TO_UNI.length)
-            {
-                sb.append('?');
-            }
-            else
-            {
-                sb.append((char)CODE_TO_UNI[b & 0xff]);
-            }
+            sb.append(CODE_TO_UNI[b & 0xff]);
         }
         return sb.toString();
     }
@@ -148,20 +123,12 @@ final class PDFDocEncoding
      */
     public static byte[] getBytes(String text)
     {
-        ByteArrayOutputStream out = new ByteArrayOutputStream(text.length());
-        for (char c : text.toCharArray())
+        byte[] bytes = new byte[text.length()];
+        for ( int i = 0; i < bytes.length; i++ )
         {
-            Integer code = UNI_TO_CODE.get(c);
-            if (code == null)
-            {
-                out.write(0);
-            }
-            else
-            {
-                out.write(code);
-            }
+            bytes[i] = (byte)Math.max(0, getCode(text.charAt(i)));
         }
-        return out.toByteArray();
+        return bytes;
     }
 
     /**
@@ -171,6 +138,18 @@ final class PDFDocEncoding
      */
     public static boolean containsChar(char character)
     {
-        return UNI_TO_CODE.containsKey(character);
+        return getCode(character) != -1;
     }
+
+    /**
+     * Returns the code for the character or {@code -1} if not PDFDocEncoding character.
+     */
+    private static int getCode(char ch)
+    {
+        // replacement mapping is wrong, but keeps compatibility with older versions
+        return ch < 256 && CODE_TO_UNI[ch] == ch ? ch
+            : ch == REPLACEMENT_CHARACTER ? 0x9F
+                : UNI_TO_CODE.getOrDefault((int)ch, MISSING);
+    }
+    
 }

@@ -19,8 +19,14 @@ package org.apache.pdfbox.cos;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import static org.apache.pdfbox.cos.PDFDocEncoding.CODE_TO_UNI;
+import static org.apache.pdfbox.cos.PDFDocEncoding.REPLACEMENT_CHARACTER;
+import static org.apache.pdfbox.cos.PDFDocEncoding.UNI_TO_CODE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -86,11 +92,33 @@ public class PDFDocEncodingTest
     @Test
     public void testTables()
     {
-        for ( int i : PDFDocEncoding.CODE_TO_UNI )
+        for ( int i = 0; i < CODE_TO_UNI.length; i++ )
         {
-            assertNotEquals(0xffff, i);
+            int c = CODE_TO_UNI[i];
+            assertNotEquals(0xffff, c);
         }
-        assertEquals(256 - 2, PDFDocEncoding.UNI_TO_CODE.size());
+        assertEquals(40, UNI_TO_CODE.size());
+    }
+
+    @Test
+    public void testStandard()
+    {
+        for ( int i = 0; i < 256; i++ )
+        {
+            byte[] bytes = new byte[] { (byte)i };
+            COSString cs1 = COSString.wrap(bytes);
+            COSString cs2 = new COSString(cs1.getString());
+            assertEquals(cs1, cs2);
+            switch (i) {
+                case 0x7F:
+                case 0xAD:
+                    assertFalse(String.format("%02x <-> %02x", bytes[0], cs2.getBytes()[0]), Arrays.equals(bytes, cs2.getBytes()));
+                    assertEquals(0x9F, 0xff & cs2.getBytes()[0]);
+                    break;
+                default:
+                    assertTrue(String.format("%02x <-> %02x", bytes[0], cs2.getBytes()[0]), Arrays.equals(bytes, cs2.getBytes()));
+            }
+        }
     }
     
     @Test
@@ -107,8 +135,8 @@ public class PDFDocEncodingTest
     @Test
     public void testReplacement()
     {
-        assertTrue(PDFDocEncoding.containsChar(PDFDocEncoding.REPLACEMENT_CHARACTER));
-        String deviation = "" + PDFDocEncoding.REPLACEMENT_CHARACTER;
+        assertTrue(PDFDocEncoding.containsChar(REPLACEMENT_CHARACTER));
+        String deviation = "" + REPLACEMENT_CHARACTER;
         COSString cosString = new COSString(deviation);
         assertEquals("9F", cosString.toHexString());
         assertEquals(cosString.getString(), deviation);
