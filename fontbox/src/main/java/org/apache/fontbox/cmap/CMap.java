@@ -415,6 +415,8 @@ public class CMap
         do {
             int min = Math.min(0x100 - (utf16[utf16.length - 1] & 0xff), end - start + 1);
             
+            // TODO: if start == end, call addBasefontMapping or hope an extension follows later?
+            
             BasefontRange range = null;
             if ( ranges.size() != 0 ) {
                 range = ranges.get(ranges.size() - 1);
@@ -435,7 +437,7 @@ public class CMap
 
             if ( Bytes.add(utf16, min) == -2 ) break;
             start += min;
-        } while ( !strict && start < end );
+        } while ( !strict && start <= end );
         
     }
     
