@@ -17,8 +17,11 @@
 package org.apache.fontbox.ttf;
 
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import org.apache.fontbox.util.OpenByteArrayOutputStream;
 
@@ -104,14 +107,36 @@ class MemoryTTFDataStream extends TTFDataStream
      */
     @Override
     public int read(byte[] b, int off, int len) throws IOException
-     {
+    {
         if (currentPosition >= data.length) return -1;
         
         int r = Math.min(len, data.length - currentPosition);
         System.arraycopy(data, currentPosition, b, off, r);
         currentPosition += r;
         return r;
-     }
+    }
+    
+    @Override
+    public byte[] read(int numberOfBytes) throws IOException, EOFException
+    {
+        if ( currentPosition + numberOfBytes > data.length )
+        {
+            throw new EOFException("Unexpected end of TTF stream reached");
+        }
+        return Arrays.copyOfRange(data, currentPosition, currentPosition += numberOfBytes);
+    }
+    
+    @Override
+    public ByteBuffer readBuffer(int numberOfBytes) throws IOException, EOFException
+    {
+        if ( currentPosition + numberOfBytes > data.length )
+        {
+            throw new EOFException("Unexpected end of TTF stream reached");
+        }
+        int pos = currentPosition;
+        currentPosition += numberOfBytes;
+        return ByteBuffer.wrap(data, pos, numberOfBytes);
+    }
     
     /**
      * Get the current position in the stream.

@@ -50,7 +50,7 @@ class CmapSubtableDirectTableFormats
     {
         data.seek(streamOffset + 6); // skip format, length and version
         
-        Range range = new LookupRange(0, 255, CodeRanges.bytes(data.read(256)));
+        Range range = new LookupRange(0, 255, CodeRanges.bytes(data.readBuffer(256)));
         
         if ( verifyGlyphs(0, range, numGlyphs) ) {
             return CodeRanges.EMPTY;
@@ -82,7 +82,7 @@ class CmapSubtableDirectTableFormats
             return CodeRanges.EMPTY;
         }
         
-        Range range = new LookupRange(firstCode, lastCode, CodeRanges.chars(data.read(entryCount * 2)));
+        Range range = new LookupRange(firstCode, lastCode, CodeRanges.chars(data.readBuffer(entryCount * 2)));
         
         if ( verifyGlyphs(6, range, numGlyphs) ) {
             return CodeRanges.EMPTY;
@@ -120,7 +120,7 @@ class CmapSubtableDirectTableFormats
             return CodeRanges.EMPTY;
         }
         
-        Range range = new LookupRange(startCharCode, endCharCode, CodeRanges.chars(data.read(numChars * 2)));
+        Range range = new LookupRange(startCharCode, endCharCode, CodeRanges.chars(data.readBuffer(numChars * 2)));
         
         if ( verifyGlyphs(10, range, numGlyphs) ) {
             return CodeRanges.EMPTY;

@@ -20,6 +20,7 @@ package org.apache.fontbox.ttf;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 
 /**
  * A wrapper for a TTF stream inside a TTC file, does not close the underlying shared stream.
@@ -76,6 +77,12 @@ class TTCDataStream extends TTFDataStream
     public int read(byte[] b, int off, int len) throws IOException
     {
         return stream.read(b, off, len);
+    }
+    
+    @Override
+    public ByteBuffer readBuffer(int numberOfBytes) throws IOException, EOFException
+    {
+        return stream.readBuffer(numberOfBytes);
     }
 
     @Override

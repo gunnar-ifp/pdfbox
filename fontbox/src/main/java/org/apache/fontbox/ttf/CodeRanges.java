@@ -195,18 +195,39 @@ class CodeRanges implements Iterable<CodeRanges.Range>
      */
     public static IntUnaryOperator bytes(final byte[] array)
     {
-        return  i -> array[i] & 0xff;
+        return i -> array[i] & 0xff;
     }
 
     
     /**
-     * Wraps a byte array contain uint16 values.
+     * Slices a byte buffer  containing uint8 values. 
+     */
+    public static IntUnaryOperator bytes(ByteBuffer buffer)
+    {
+        final ByteBuffer slice = buffer.slice();
+        return i -> slice.get(i) & 0xff;
+    }
+
+    
+    /**
+     * Wraps a byte array containing uint16 values.
      * The returned lookup table will operate on 16 bits, i.e. offset 0 returns
      * the 16 bit at bytes 0 and 1, offset 1 will address bytes 2 and 3, etc. 
      */
     public static IntUnaryOperator chars(byte[] array)
     {
         return ByteBuffer.wrap(array).asCharBuffer()::get;
+    }
+
+    
+    /**
+     * Wraps a byte buffer containing uint16 values.
+     * The returned lookup table will operate on 16 bits, i.e. offset 0 returns
+     * the 16 bit at bytes 0 and 1, offset 1 will address bytes 2 and 3, etc. 
+     */
+    public static IntUnaryOperator chars(ByteBuffer buffer)
+    {
+        return buffer.asCharBuffer()::get;
     }
     
     

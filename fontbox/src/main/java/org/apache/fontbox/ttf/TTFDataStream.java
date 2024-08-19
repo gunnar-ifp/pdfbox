@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -307,6 +308,21 @@ abstract class TTFDataStream implements Closeable
         return data;
     }
 
+    
+    /**
+     * Read a specific number of bytes from the stream and returns it as buffer.
+     * Subclasses might return slices of internal buffers.
+     * 
+     * @param numberOfBytes The number of bytes to read.
+     * @return The byte buffer.
+     * @throws IOException If there is an error while reading.
+     */
+    public ByteBuffer readBuffer(int numberOfBytes) throws IOException, EOFException
+    {
+        return ByteBuffer.wrap(read(numberOfBytes));
+    }
+
+    
     /**
      * Seek into the datasource.
      * 

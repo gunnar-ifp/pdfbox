@@ -58,8 +58,8 @@ public class CmapSubtableOffsetTableFormats
     {
         data.seek(streamOffset + 6);
         
-        final CharBuffer keys    = ByteBuffer.wrap(data.read(512)).asCharBuffer();
-        final ByteBuffer headers = ByteBuffer.wrap(data.read(keys.chars().max().getAsInt() + 8));
+        final CharBuffer keys    = data.readBuffer(512).asCharBuffer();
+        final ByteBuffer headers = data.readBuffer(keys.chars().max().getAsInt() + 8);
         
         // Note:
         // The original code did iterate over the number of subtables only, this is not correct.
@@ -131,7 +131,7 @@ public class CmapSubtableOffsetTableFormats
         }
         
         data.seek(streamOffset + glyphStart * 2);
-        final IntUnaryOperator glyphs = CodeRanges.chars(data.read((glyphEnd - glyphStart) * 2));
+        final IntUnaryOperator glyphs = CodeRanges.chars(data.readBuffer((glyphEnd - glyphStart) * 2));
         for ( Iterator<LookupRange> it = ranges.iterator(); it.hasNext(); ) {
             LookupRange r = it.next();
             r.setTable(glyphs);
@@ -165,11 +165,11 @@ public class CmapSubtableOffsetTableFormats
         if ( segCountX2 == 0 ) return CodeRanges.EMPTY;
 
         data.seek(streamOffset + 14);
-        byte[] headers = data.read(segCountX2 * 4 + 2);
-        CharBuffer endCodes   = ByteBuffer.wrap(headers, segCountX2 * 0 + 0, segCountX2).asCharBuffer();
-        CharBuffer startCodes = ByteBuffer.wrap(headers, segCountX2 * 1 + 2, segCountX2).asCharBuffer();
-        ShortBuffer idDeltas  = ByteBuffer.wrap(headers, segCountX2 * 2 + 2, segCountX2).asShortBuffer();
-        CharBuffer idROffsets = ByteBuffer.wrap(headers, segCountX2 * 3 + 2, segCountX2).asCharBuffer();
+        CharBuffer endCodes   = data.readBuffer(segCountX2).asCharBuffer();
+        data.readShort();
+        CharBuffer startCodes = data.readBuffer(segCountX2).asCharBuffer();
+        ShortBuffer idDeltas  = data.readBuffer(segCountX2).asShortBuffer();
+        CharBuffer idROffsets = data.readBuffer(segCountX2).asCharBuffer();
 
         
         final List<Range> ranges = new ArrayList<>(segCountX2 / 2);
@@ -210,7 +210,7 @@ public class CmapSubtableOffsetTableFormats
         
         if ( glyphEnd > 0 ) {
             data.seek(streamOffset + glyphStart);
-            final IntUnaryOperator glyphs = CodeRanges.chars(data.read(glyphEnd - glyphStart));
+            final IntUnaryOperator glyphs = CodeRanges.chars(data.readBuffer(glyphEnd - glyphStart));
             for ( Iterator<Range> it = ranges.iterator(); it.hasNext(); ) {
                 Range r = it.next();
                 if ( r instanceof LookupRange ) {
