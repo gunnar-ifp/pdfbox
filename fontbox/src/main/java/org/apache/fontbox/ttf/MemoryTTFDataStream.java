@@ -135,7 +135,7 @@ class MemoryTTFDataStream extends TTFDataStream
         }
         int pos = currentPosition;
         currentPosition += numberOfBytes;
-        return ByteBuffer.wrap(data, pos, numberOfBytes);
+        return ByteBuffer.wrap(data, pos, numberOfBytes).asReadOnlyBuffer().slice();
     }
     
     /**

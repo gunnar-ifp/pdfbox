@@ -200,7 +200,7 @@ class CodeRanges implements Iterable<CodeRanges.Range>
 
     
     /**
-     * Slices a byte buffer  containing uint8 values. 
+     * {@link ByteBuffer#slice() Slices} a byte buffer containing uint8 values. 
      */
     public static IntUnaryOperator bytes(ByteBuffer buffer)
     {
@@ -221,7 +221,7 @@ class CodeRanges implements Iterable<CodeRanges.Range>
 
     
     /**
-     * Wraps a byte buffer containing uint16 values.
+     * Casts a byte buffer containing uint16 values {@link ByteBuffer#asCharBuffer() into char buffer}.
      * The returned lookup table will operate on 16 bits, i.e. offset 0 returns
      * the 16 bit at bytes 0 and 1, offset 1 will address bytes 2 and 3, etc. 
      */

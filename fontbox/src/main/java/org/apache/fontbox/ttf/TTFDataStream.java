@@ -311,7 +311,11 @@ abstract class TTFDataStream implements Closeable
     
     /**
      * Read a specific number of bytes from the stream and returns it as buffer.
-     * Subclasses might return slices of internal buffers.
+     * Subclasses might return read-only slices of internal buffers.
+     * <p>
+     * The returned buffer will have {@link ByteBuffer#position()} of {@code 0}
+     * and its {@link ByteBuffer#limit()} and {@link ByteBuffer#capacity()}
+     * will be {@code numberOfBytes}.
      * 
      * @param numberOfBytes The number of bytes to read.
      * @return The byte buffer.
